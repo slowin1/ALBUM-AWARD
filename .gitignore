@@ -1,0 +1,21 @@
+node_modules/
+dist/
+*.tsbuildinfo
+.DS_Store
+.qodo/
+.env
+.env.*
+!.env.example
+
+# Local docs, lab reports, and scratch assets
+*.md
+*.docx
+*.pdf
+docs/
+artifacts/
+references/
+assets/
+scripts/*report*.py
+scripts/rebuild_reports_*.py
+like-design.svg
+profile-preferences.svg

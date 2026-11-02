@@ -1,0 +1,170 @@
+.artist-card-transition {
+  position: relative;
+  z-index: 1;
+  min-height: 100svh;
+  background: #080808;
+}
+
+.artist-card-transition-shade,
+.artist-card-transition-front {
+  display: none;
+}
+
+.artist-card-transition-stage,
+.artist-card-transition-turner,
+.artist-card-transition-back,
+.artist-card-transition-page {
+  position: relative;
+  width: 100%;
+}
+
+.artist-card-transition.is-opening {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  isolation: isolate;
+  overflow: hidden;
+  cursor: progress;
+}
+
+.artist-card-transition.is-opening .artist-card-transition-shade {
+  display: block;
+  position: absolute;
+  inset: 0;
+  background: #080808;
+  animation: artist-transition-shade .4s ease both;
+}
+
+.artist-card-transition.is-opening .artist-card-transition-stage {
+  position: absolute;
+  perspective: max(1800px, calc(var(--flight-width) * 1.25));
+  pointer-events: none;
+  animation: artist-card-expand .76s cubic-bezier(.22, .72, .18, 1) both;
+}
+
+.artist-card-transition.is-opening .artist-card-transition-turner {
+  height: 100%;
+  transform-origin: center;
+  transform-style: preserve-3d;
+  animation: artist-card-turn .76s cubic-bezier(.22, .72, .18, 1) both;
+  will-change: transform;
+}
+
+.artist-card-transition.is-opening .artist-card-transition-front,
+.artist-card-transition.is-opening .artist-card-transition-back {
+  position: absolute;
+  inset: 0;
+  border-radius: var(--flight-source-radius);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  overflow: hidden;
+  animation: artist-card-square .76s cubic-bezier(.22, .72, .18, 1) both;
+}
+
+.artist-card-transition.is-opening .artist-card-transition-front {
+  display: block;
+  overflow: visible;
+  transform: translateZ(.1px);
+  background: #0b0b0c;
+}
+
+.artist-card-transition-front > .album-rating-card-frame {
+  width: var(--flight-source-width);
+  height: var(--flight-source-height);
+  transform-origin: top left;
+  animation: artist-card-front-grow .76s cubic-bezier(.22, .72, .18, 1) both;
+}
+
+.artist-card-transition-front .album-rating-card {
+  transform: none;
+  transition: none;
+}
+
+.artist-card-transition.is-opening .artist-card-transition-back {
+  background: #080808;
+  transform: rotateY(180deg);
+}
+
+/* Keep the real page at its final responsive width; scale it uniformly while turning. */
+.artist-card-transition.is-opening .artist-card-transition-page {
+  width: var(--flight-width);
+  transform-origin: top left;
+  animation: artist-card-page-grow .76s cubic-bezier(.22, .72, .18, 1) both;
+}
+
+@keyframes artist-transition-shade {
+  from { opacity: 0; }
+  to { opacity: .96; }
+}
+
+@keyframes artist-card-turn {
+  0% { transform: rotateX(var(--flight-rotate-x)) rotateY(var(--flight-rotate-y)); }
+  26% { transform: rotateX(0deg) rotateY(8deg); }
+  92%, 100% { transform: rotateX(0deg) rotateY(180deg); }
+}
+
+@keyframes artist-card-expand {
+  92%, 100% {
+    left: 0;
+    top: 0;
+    width: var(--flight-width);
+    height: var(--flight-height);
+  }
+}
+
+@keyframes artist-card-square {
+  92%, 100% { border-radius: 0; }
+}
+
+@keyframes artist-card-front-grow {
+  0% { transform: scale(1); }
+  92%, 100% { transform: scale(var(--flight-front-scale)); }
+}
+
+@keyframes artist-card-page-grow {
+  0% { transform: scale(var(--flight-page-scale)); }
+  92%, 100% { transform: scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .artist-card-transition.is-opening {
+    position: relative;
+    inset: auto;
+    overflow: visible;
+  }
+
+  .artist-card-transition.is-opening .artist-card-transition-stage {
+    position: relative;
+    left: auto !important;
+    top: auto !important;
+    width: 100% !important;
+    height: auto !important;
+    perspective: none;
+    animation: none;
+  }
+
+  .artist-card-transition.is-opening .artist-card-transition-turner {
+    height: auto;
+    transform-style: flat;
+    animation: none;
+  }
+
+  .artist-card-transition.is-opening .artist-card-transition-front,
+  .artist-card-transition.is-opening .artist-card-transition-shade {
+    display: none;
+  }
+
+  .artist-card-transition.is-opening .artist-card-transition-back {
+    position: relative;
+    inset: auto;
+    overflow: visible;
+    border-radius: 0;
+    transform: none;
+    animation: none;
+  }
+
+  .artist-card-transition.is-opening .artist-card-transition-page {
+    width: 100%;
+    animation: none;
+  }
+}

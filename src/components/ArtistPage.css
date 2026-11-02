@@ -1,0 +1,679 @@
+.artist-page {
+  position: relative;
+  z-index: 1;
+  min-height: 100svh;
+  padding: 132px 6vw 0;
+  color: #f1f0ed;
+  background: #080808;
+}
+
+.artist-page-inner {
+  max-width: 1440px;
+  margin: 0 auto;
+}
+
+.artist-page a {
+  color: inherit;
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.artist-page a:focus-visible {
+  outline: 2px solid #dedbd6;
+  outline-offset: 7px;
+}
+
+.artist-page h1:focus {
+  outline: none;
+}
+
+.artist-page-top,
+.artist-page-releases-heading,
+.artist-page-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.artist-page-back,
+.artist-page-collection-link,
+.artist-page-listen {
+  display: inline-flex;
+  align-items: center;
+  gap: 16px;
+  min-height: 44px;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.artist-page-eyebrow {
+  margin: 0;
+  color: #8b8987;
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: .12em;
+  line-height: 1.5;
+}
+
+.artist-page-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2.15fr);
+  align-items: stretch;
+  gap: 24px;
+  padding: 32px 0 clamp(64px, 7vw, 100px);
+}
+
+.artist-page-intro {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 48px;
+  min-width: 0;
+  padding: clamp(28px, 3.3vw, 48px);
+  border: 1px solid;
+  border-color: rgb(255 255 255 / 14%) rgb(255 255 255 / 23%) rgb(255 255 255 / 10%) rgb(255 255 255 / 9%);
+  border-radius: 28px;
+  background: linear-gradient(105deg, rgb(7 7 8 / 94%), rgb(16 16 17 / 88%) 48%, rgb(35 35 36 / 94%));
+  box-shadow: inset 0 1px 1px rgb(255 255 255 / 5%), inset 0 0 0 1px rgb(255 255 255 / 2%), 0 8px 24px rgb(0 0 0 / 25%);
+}
+
+.artist-page-intro > .fluid-background {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  border-radius: inherit;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse at 85% 25%, rgb(83 83 89 / 24%), transparent 65%),
+    radial-gradient(ellipse at 58% 85%, rgb(49 49 54 / 32%), transparent 62%),
+    #09090a;
+}
+
+.artist-page-intro > .fluid-background::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(105deg, rgb(7 7 8 / 32%), transparent 70%);
+  pointer-events: none;
+}
+
+.fluid-background > canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  transition: opacity .6s ease;
+}
+
+.fluid-background[data-ready] > canvas {
+  opacity: 1;
+}
+
+.artist-page h1 {
+  max-width: 14ch;
+  margin: 16px 0 0;
+  font-size: clamp(40px, 5.1vw, 80px);
+  font-weight: 500;
+  letter-spacing: -.055em;
+  line-height: 1.02;
+  text-wrap: balance;
+  overflow-wrap: anywhere;
+}
+
+.artist-page-collection-link {
+  margin-top: 18px;
+  color: #aaa7a2;
+  gap: 10px;
+}
+
+.artist-page-collection-link span {
+  transition: transform .25s ease;
+}
+
+.artist-page-collection-link:hover span {
+  transform: translate(3px, -3px);
+}
+
+.artist-page-avatar {
+  display: flex;
+  align-self: start;
+  min-width: 0;
+  aspect-ratio: 1;
+  margin: 0;
+  overflow: hidden;
+  border: 1px solid rgb(255 255 255 / 10%);
+  border-radius: 28px;
+  background: #141414;
+}
+
+.artist-page-avatar-image {
+  position: relative;
+  isolation: isolate;
+  width: 100%;
+  aspect-ratio: 1;
+}
+
+.artist-page-avatar-image::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(180deg, transparent 55%, rgb(0 0 0 / 24%));
+  box-shadow: inset 0 0 48px rgb(0 0 0 / 12%);
+}
+
+.artist-page-avatar-image img {
+  display: block;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: saturate(.8);
+}
+
+.artist-page-avatar-initials {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: #8b8987;
+  font-size: clamp(64px, 9vw, 140px);
+  font-weight: 300;
+  letter-spacing: -.07em;
+}
+
+.artist-page-stats {
+  display: grid;
+  grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr);
+  gap: 24px;
+  margin: 0;
+  padding-top: 28px;
+  border-top: 1px solid rgb(255 255 255 / 9%);
+}
+
+.artist-page-stat {
+  min-width: 0;
+}
+
+.artist-page-stat + .artist-page-stat {
+  padding-left: 28px;
+  border-left: 1px solid rgb(255 255 255 / 9%);
+}
+
+.artist-page-stat dt {
+  margin-bottom: 14px;
+  color: #aaa7a2;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.artist-page-stat dd {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.artist-page-stat strong {
+  font-size: clamp(34px, 3.2vw, 48px);
+  font-weight: 500;
+  letter-spacing: -.05em;
+  line-height: 1;
+}
+
+.artist-page-stat-unit {
+  color: #aaa7a2;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.artist-page-stat .artist-page-stat-caption {
+  display: block;
+  margin-top: 12px;
+  color: #888582;
+  font-size: 10px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.artist-page-releases {
+  scroll-margin-top: 120px;
+}
+
+.artist-page-releases--tracks {
+  margin-top: 64px;
+}
+
+.artist-page-releases-heading {
+  padding-bottom: 28px;
+}
+
+.artist-page h2 {
+  margin: 0;
+  font-size: clamp(24px, 2.5vw, 34px);
+  font-weight: 400;
+  letter-spacing: -.035em;
+  line-height: 1.2;
+}
+
+.artist-page-release-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+
+.artist-page-release {
+  --release-radius: 26px;
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  grid-template-columns: clamp(112px, 11.6vw, 168px) minmax(0, 1fr);
+  align-items: center;
+  gap: 22px;
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid;
+  border-color: rgb(255 255 255 / 14%) rgb(255 255 255 / 19%) rgb(255 255 255 / 9%) rgb(255 255 255 / 8%);
+  border-radius: var(--release-radius);
+  background: linear-gradient(105deg, rgb(7 7 8 / 94%), rgb(16 16 17 / 88%) 48%, rgb(35 35 36 / 94%));
+  box-shadow: inset 0 1px 1px rgb(255 255 255 / 4%), 0 8px 24px rgb(0 0 0 / 18%);
+  transition: border-color .25s ease, background .25s ease;
+}
+
+.artist-page-release:hover,
+.artist-page-release:focus-within {
+  border-color: rgb(255 255 255 / 28%);
+  background: linear-gradient(105deg, #111112, #19191a 48%, #29292a);
+}
+
+.artist-page-release-main::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: var(--release-radius);
+}
+
+.artist-page .artist-page-release-main:focus-visible {
+  outline: none;
+}
+
+.artist-page-release-main:focus-visible::after {
+  outline: 2px solid #dedbd6;
+  outline-offset: 5px;
+}
+
+.artist-page-release-cover {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 16px;
+  transition: transform .3s ease;
+}
+
+.artist-page-release:hover .artist-page-release-cover {
+  transform: scale(1.025);
+}
+
+.artist-page-release-description {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-self: stretch;
+  min-width: 0;
+  padding: 7px 8px 7px 0;
+}
+
+.artist-page-release-topline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+}
+
+.artist-page-release-type {
+  color: #96938f;
+  font-size: 10px;
+  letter-spacing: .04em;
+  line-height: 1.6;
+}
+
+.artist-page-release-score {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 4px 9px;
+  border: 1px solid rgb(255 255 255 / 6%);
+  border-radius: 999px;
+  color: #a6a3a0;
+  background: rgb(255 255 255 / 4%);
+  font-size: 9px;
+  line-height: 1.5;
+}
+
+.artist-page-release-score strong {
+  color: #f1f0ed;
+  font-size: 12px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.artist-page-release-score.is-high-score {
+  color: #f2dedb;
+  background: #870000;
+  background: linear-gradient(to right, #870000, #190a05);
+}
+
+.artist-page-release-score.is-mid-score {
+  color: #efffff;
+  background: #1a2980;
+  background: linear-gradient(to right, #1a2980, #26d0ce);
+  text-shadow: 0 1px 2px rgb(0 0 0 / 80%), 0 0 4px rgb(0 0 0 / 35%);
+}
+
+.artist-page-release-score.is-low-score {
+  color: #020202;
+  background: #00f260;
+  background: linear-gradient(to right, #00f260, #0575e6);
+}
+
+.artist-page-release-score:is(.is-high-score, .is-mid-score, .is-low-score) {
+  border: 0;
+  padding: 5px 10px;
+  background-clip: padding-box;
+  background-repeat: no-repeat;
+  box-shadow: none;
+}
+
+.artist-page-release-score.is-low-score strong {
+  color: inherit;
+}
+
+.artist-page h3 {
+  margin: 12px 0 0;
+  font-size: clamp(21px, 1.8vw, 28px);
+  font-weight: 500;
+  letter-spacing: -.035em;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+
+.artist-page-release-artist {
+  margin: 6px 0 0;
+  color: #a09d99;
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.artist-page-release-review {
+  margin: 6px 0 0;
+  color: #d6d3ce;
+  font-size: 11px;
+  font-style: italic;
+  line-height: 1.45;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.artist-page-collabs {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  margin-top: 8px;
+}
+
+.artist-page-collabs-label {
+  color: #827f7b;
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+.artist-page-collab-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 9px;
+  border: 1px solid rgb(255 255 255 / 14%);
+  border-radius: 999px;
+  background: rgb(255 255 255 / 5%);
+  color: #d7d4cf;
+  font-size: 10px;
+  line-height: 1.45;
+  transition: border-color .2s ease, background .2s ease, color .2s ease;
+}
+
+.artist-page-collab-link:hover {
+  border-color: rgb(255 255 255 / 36%);
+  background: rgb(255 255 255 / 12%);
+  color: #fff;
+}
+
+.artist-page-release-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  margin-top: 16px;
+  padding-top: 7px;
+  border-top: 1px solid rgb(255 255 255 / 10%);
+}
+
+.artist-page-release-meta time {
+  color: #aaa7a2;
+  font-size: 11px;
+  line-height: 1.5;
+  font-variant-numeric: tabular-nums;
+}
+
+.artist-page .artist-page-listen {
+  position: relative;
+  z-index: 2;
+  min-height: 32px;
+  gap: 10px;
+  color: #aaa7a2;
+  white-space: nowrap;
+}
+
+.artist-page-back:hover,
+.artist-page .artist-page-listen:hover,
+.artist-page-collection-link:hover {
+  color: #f1f0ed;
+}
+
+.artist-page-listen > span[aria-hidden] {
+  transition: transform .25s ease;
+}
+
+.artist-page-listen:hover > span[aria-hidden] {
+  transform: translate(3px, -3px);
+}
+
+.artist-page-footer {
+  margin-top: 120px;
+  padding: 30px 0 max(30px, env(safe-area-inset-bottom));
+  color: #65625e;
+  font-size: 9px;
+  letter-spacing: .08em;
+  line-height: 1.5;
+}
+
+.artist-page-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (max-width: 900px) {
+  .artist-page-hero {
+    gap: 18px;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.8fr);
+  }
+
+  .artist-page-intro {
+    gap: 32px;
+    padding: 28px;
+  }
+
+  .artist-page h1 {
+    font-size: clamp(36px, 5.2vw, 48px);
+  }
+
+  .artist-page-stats {
+    gap: 16px;
+    padding-top: 22px;
+  }
+
+  .artist-page-stat + .artist-page-stat {
+    padding-left: 20px;
+  }
+
+  .artist-page-release-list {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+  }
+
+  .artist-page-release {
+    grid-template-columns: 148px minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 700px) {
+  .artist-page-hero {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .artist-page-intro {
+    gap: 36px;
+  }
+
+  .artist-page h1 {
+    font-size: clamp(42px, 8vw, 62px);
+  }
+}
+
+@media (max-width: 600px) {
+  .artist-page {
+    padding: 112px 20px 0;
+  }
+
+  .artist-page-top {
+    gap: 16px;
+  }
+
+  .artist-page-top > .artist-page-eyebrow {
+    font-size: 8px;
+  }
+
+  .artist-page-hero {
+    gap: 16px;
+    padding: 22px 0 60px;
+  }
+
+  .artist-page-avatar,
+  .artist-page-intro {
+    border-radius: 24px;
+  }
+
+  .artist-page-intro {
+    padding: 28px 24px;
+  }
+
+  .artist-page h1 {
+    font-size: clamp(36px, 9.5vw, 54px);
+    letter-spacing: -.045em;
+  }
+
+  .artist-page-stat dt {
+    font-size: 10px;
+  }
+
+  .artist-page-stat-unit {
+    font-size: 11px;
+  }
+
+  .artist-page-stat .artist-page-stat-caption {
+    font-size: 9px;
+  }
+
+  .artist-page-releases {
+    scroll-margin-top: 100px;
+  }
+
+  .artist-page-releases-heading {
+    padding-bottom: 24px;
+  }
+
+  .artist-page-release {
+    --release-radius: 22px;
+    grid-template-columns: clamp(80px, 23vw, 120px) minmax(0, 1fr);
+    align-items: start;
+    gap: 16px;
+    padding: 12px;
+  }
+
+  .artist-page-release-description {
+    padding: 3px 3px 0 0;
+  }
+
+  .artist-page-release-cover {
+    border-radius: 12px;
+  }
+
+  .artist-page h3 {
+    margin-top: 10px;
+    font-size: clamp(18px, 4.4vw, 24px);
+  }
+
+  .artist-page-release-artist {
+    font-size: 11px;
+  }
+
+  .artist-page-release-meta {
+    margin-top: 12px;
+    padding-top: 5px;
+  }
+
+  .artist-page .artist-page-listen {
+    min-height: 36px;
+    font-size: 10px;
+  }
+
+  .artist-page-footer {
+    margin-top: 72px;
+    gap: 20px;
+    font-size: 8px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fluid-background > canvas,
+  .artist-page-release,
+  .artist-page-release-cover,
+  .artist-page-listen > span[aria-hidden],
+  .artist-page-collection-link span {
+    transition: none;
+  }
+}
