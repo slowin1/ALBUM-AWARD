@@ -1,0 +1,71 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id            String       @id @default(uuid())
+  nickname      String       @unique
+  email         String       @unique
+  bio           String?
+  favoriteGenre String?
+  avatarUrl     String?
+  provider      String?      // 'local' | 'telegram' | 'google' | 'apple'
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  preferences   Preference?
+  ratings       Rating[]
+}
+
+model Preference {
+  id          String   @id @default(uuid())
+  userId      String   @unique
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // JSON arrays of Top-5 items for each category
+  artists     Json?    // [{ id, name, cover, note }]
+  albums      Json?
+  tracks      Json?
+  producers   Json?
+  clipmakers  Json?
+  designers   Json?
+  soundengineers Json?
+
+  updatedAt   DateTime @updatedAt
+}
+
+model Rating {
+  id               String   @id @default(uuid())
+  userId           String
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  releaseType      String   // 'album' | 'track' | 'month-artist'
+  releaseId        String   // e.g. 'heavy-metal-2' or 'mulholland'
+  
+  // Criteria scores (0 to 10)
+  rhymesScore      Int?     @default(0)
+  structureScore   Int?     @default(0)
+  styleScore       Int?     @default(0)
+  individualityScore Int?   @default(0)
+  atmosphereScore  Int?     @default(0)
+
+  // 1-5 multiplier / coefficient
+  multiplier       Int?     @default(1)
+
+  // Overall calculated score
+  totalScore       Float
+
+  reviewText       String?  @db.Text
+  likesCount       Int      @default(0)
+
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@unique([userId, releaseType, releaseId])
+  @@index([releaseId])
+}

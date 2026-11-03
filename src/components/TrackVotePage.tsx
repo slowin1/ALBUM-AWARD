@@ -3,6 +3,7 @@ import type { MouseEvent } from 'react'
 import { tracks, type TrackDefinition } from '../data/tracks'
 import { artists, getReleaseArtists, type ArtistDefinition } from '../data/artists'
 import { calculateAlbumScore, useAlbumRatings } from '../hooks/useAlbumRatings'
+import { playOrToggleTrack, useReleasePlayback } from '../hooks/useAudioPlayer'
 import { scrollToElement } from '../navigation/smoothScroll'
 import { AlbumRatingCard } from './AlbumRatingCard'
 import { AlbumScoreForm } from './AlbumScoreForm'
@@ -36,6 +37,14 @@ export function TrackVotePage({ track, index, onBack, backHref = '/tracks', back
   const number = String(index + 1).padStart(2, '0')
   const totalLabel = isWheelTrack ? String(tracks.length).padStart(2, '0') : 'КАТАЛОГ'
   const releaseArtists = getReleaseArtists(track.artist, track.title)
+  const playbackStatus = useReleasePlayback(`track:${track.id}`)
+  const isPlaying = playbackStatus === 'playing'
+  const isLoading = playbackStatus === 'loading'
+  const isPaused = playbackStatus === 'paused'
+
+  const handleTogglePlay = () => {
+    playOrToggleTrack(track, isWheelTrack ? tracks : undefined)
+  }
 
   useEffect(() => {
     if (directVote) voteHeadingRef.current?.focus({ preventScroll: true })
@@ -80,12 +89,33 @@ export function TrackVotePage({ track, index, onBack, backHref = '/tracks', back
               <span className="album-page-number" aria-label={isWheelTrack ? `Трек ${index + 1} из ${tracks.length}` : `Трек ${track.title}`}>
                 {number} <span aria-hidden="true">/ {totalLabel}</span>
               </span>
-              <a className="album-page-scroll" href="#vote" onClick={scrollToVote}>
-                Голосовать
-                <svg width="17" height="22" viewBox="0 0 17 22" fill="none" aria-hidden="true">
-                  <path d="M8.5 1v18M2 13l6.5 6.5L15 13" stroke="currentColor" strokeWidth="1.2" />
-                </svg>
-              </a>
+              <div className="album-page-hero-actions">
+                <button
+                  type="button"
+                  className={`album-page-play-btn is-hero${playbackStatus !== 'idle' ? ' is-active' : ''}`}
+                  onClick={handleTogglePlay}
+                >
+                  {isLoading ? (
+                    <span className="album-page-play-spinner" aria-hidden="true" />
+                  ) : isPlaying ? (
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                      <rect x="6.5" y="5" width="4" height="14" rx="1.2" />
+                      <rect x="13.5" y="5" width="4" height="14" rx="1.2" />
+                    </svg>
+                  ) : (
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                      <path d="M7.5 5.4c0-.85.94-1.36 1.66-.9l9.4 6c.66.42.66 1.38 0 1.8l-9.4 6c-.72.46-1.66-.05-1.66-.9v-12z" />
+                    </svg>
+                  )}
+                  <span>{isPlaying ? 'Пауза' : 'Слушать'}</span>
+                </button>
+                <a className="album-page-scroll" href="#vote" onClick={scrollToVote}>
+                  Голосовать
+                  <svg width="17" height="22" viewBox="0 0 17 22" fill="none" aria-hidden="true">
+                    <path d="M8.5 1v18M2 13l6.5 6.5L15 13" stroke="currentColor" strokeWidth="1.2" />
+                  </svg>
+                </a>
+              </div>
             </div>
           </section>
 
@@ -187,8 +217,35 @@ export function TrackVotePage({ track, index, onBack, backHref = '/tracks', back
             />
 
             <div className="album-page-actions">
+              <button
+                type="button"
+                className={`album-page-play-btn${playbackStatus !== 'idle' ? ' is-active' : ''}`}
+                onClick={handleTogglePlay}
+              >
+                {isLoading ? (
+                  <span className="album-page-play-spinner" aria-hidden="true" />
+                ) : isPlaying ? (
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                    <rect x="6.5" y="5" width="4" height="14" rx="1.2" />
+                    <rect x="13.5" y="5" width="4" height="14" rx="1.2" />
+                  </svg>
+                ) : (
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                    <path d="M7.5 5.4c0-.85.94-1.36 1.66-.9l9.4 6c.66.42.66 1.38 0 1.8l-9.4 6c-.72.46-1.66-.05-1.66-.9v-12z" />
+                  </svg>
+                )}
+                <span>
+                  {isLoading
+                    ? 'Загружаем…'
+                    : isPlaying
+                      ? 'Пауза'
+                      : isPaused
+                        ? 'Продолжить прослушивание'
+                        : 'Слушать трек'}
+                </span>
+              </button>
               <a className="album-page-listen" href={track.sourceUrl} target="_blank" rel="noopener noreferrer">
-                Слушать трек <span aria-hidden="true">↗</span>
+                Apple Music <span aria-hidden="true">↗</span>
                 <span className="album-page-sr-only"> — откроется в новой вкладке</span>
               </a>
               {albumHref && onOpenAlbum && (

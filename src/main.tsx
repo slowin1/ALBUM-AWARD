@@ -14,9 +14,12 @@ import { MonthArtistVotePage } from './components/MonthArtistVotePage'
 import { ArtistPage } from './components/ArtistPage'
 import { ArtistCardTransition, type ArtistCardSource } from './components/ArtistCardTransition'
 import { HomePage } from './components/HomePage'
+import { AudioPlayerBar } from './components/AudioPlayerBar'
 import { RegistrationPage } from './components/RegistrationPage'
 import { UserProfilePage } from './components/UserProfilePage'
+import { AdminTracksPage } from './components/AdminTracksPage'
 import { albumPath, albumProgress, artistPath, useAlbumNavigation } from './navigation/albumNavigation'
+import { useHasActivePlayer } from './hooks/useAudioPlayer'
 import { useAuth } from './hooks/useAuth'
 import { FrameProfiler } from './scene/FrameProfiler'
 import { RenderQuality } from './scene/RenderQuality'
@@ -36,8 +39,9 @@ class SceneBoundary extends Component<{ children: ReactNode }, { failed: boolean
 }
 
 function App() {
- const { route, location: routeLocation, openedFromHome, goToHome, goToAlbum, goToTrack, goToMonthArtist, goToArtist, returnToAlbum, goToGallery, goToTracks, goToArtists, goToRegister, goToProfile, artistAlbumIndex, artistFromTrack, artistFromMonthArtist } = useAlbumNavigation()
+ const { route, location: routeLocation, openedFromHome, goToHome, goToAlbum, goToTrack, goToMonthArtist, goToArtist, returnToAlbum, goToGallery, goToTracks, goToArtists, goToRegister, goToProfile, goToAdmin, artistAlbumIndex, artistFromTrack, artistFromMonthArtist } = useAlbumNavigation()
  const { user, isAuthenticated } = useAuth()
+ const hasActivePlayer = useHasActivePlayer()
  const detailIndex = route.kind === 'album' ? route.index : null
  const trackIndex = route.kind === 'track' ? route.index : null
  const monthArtistIndex = route.kind === 'month-artist' ? route.index : null
@@ -67,6 +71,13 @@ function App() {
  const [renderDpr, setRenderDpr] = useState(1)
  const { active: loading, progress: loadingProgress } = useProgress()
  const settings = { ...SCENE_DEFAULTS, animate: !reducedMotion }
+
+ const [sceneVersion, setSceneVersion] = useState(0)
+ useEffect(() => {
+  const onSceneUpdate = () => setSceneVersion(v => v + 1)
+  window.addEventListener('aa:scene_updated', onSceneUpdate)
+  return () => window.removeEventListener('aa:scene_updated', onSceneUpdate)
+ }, [])
 
  useEffect(() => {
   const query = window.matchMedia('(prefers-reduced-motion: reduce)')
@@ -355,6 +366,13 @@ function App() {
   goToRegister()
  }
 
+ const adminLink = (event: MouseEvent<HTMLAnchorElement>) => {
+  if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return
+  event.preventDefault()
+  cancelOpening()
+  cancelArtistOpening()
+  goToAdmin()
+ }
  const profileLink = (event: MouseEvent<HTMLAnchorElement>) => {
   if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return
   event.preventDefault()
@@ -437,6 +455,7 @@ function App() {
   : route.kind === 'artists' ? 'ИСПОЛНИТЕЛИ · ОКЕАН'
   : route.kind === 'profile' ? 'ПРОФИЛЬ'
   : route.kind === 'register' ? 'РЕГИСТРАЦИЯ'
+  : route.kind === 'admin' ? 'АДМИН'
   : 'АЛЬБОМЫ'
  const header = <header className={isDetailPage ? 'album-header' : ''}>
    <a className="site-logo" href="/" onClick={mainHomeLink} aria-label="Album Awards — на главную"><img src="/logo-transparent.png" alt="Album Awards" /></a>
@@ -454,6 +473,9 @@ function App() {
      </a>
      <a className={`scene-tab${route.kind === 'artists' ? ' is-active' : ''}`} href="/month-artists" onClick={artistsLink} aria-current={route.kind === 'artists' ? 'page' : undefined}>
       Исполнители
+     </a>
+     <a className={`scene-tab${route.kind === 'admin' ? ' is-active' : ''}`} href="/admin" onClick={adminLink} aria-current={route.kind === 'admin' ? 'page' : undefined}>
+      + SoundCloud
      </a>
      {isAuthenticated && user?.nickname ? (
       <a className={`scene-tab${route.kind === 'profile' ? ' is-active' : ''}`} href="/profile" onClick={profileLink} aria-current={route.kind === 'profile' ? 'page' : undefined}>
@@ -479,7 +501,7 @@ function App() {
       </button>
      : route.kind === 'not-found' && <a className="header-gallery-link" href="/" onClick={mainHomeLink}>← На главную</a>}
   </header>
- return <div className={`album-app${isDetailPage ? ' is-album-page' : ''}${openingIndex !== null ? ' is-opening' : ''}${artistOpening !== null ? ' is-artist-opening' : ''}`} aria-busy={openingIndex !== null || artistOpening !== null}>
+ return <div className={`album-app${isDetailPage ? ' is-album-page' : ''}${openingIndex !== null ? ' is-opening' : ''}${artistOpening !== null ? ' is-artist-opening' : ''}${hasActivePlayer ? ' has-audio-player' : ''}`} aria-busy={openingIndex !== null || artistOpening !== null}>
   {route.kind !== 'not-found' && <div
    ref={stageRef}
    className={`canvas${isDetailPage ? ' canvas--album' : ''}`}
@@ -501,7 +523,7 @@ function App() {
      fallback={<div className="fallback">Для этой сцены нужен браузер с WebGL.</div>}>
      <RenderQuality onDprChange={setRenderDpr} enabled={stageVisible}>
       <Suspense fallback={null}>
-       <Scene key={isArtistsMode ? 'artists' : isTracksMode ? 'tracks' : 'albums'} mode={isArtistsMode ? 'artists' : isTracksMode ? 'tracks' : 'albums'} settings={settings} scroll={scroll} detailScroll={detailScroll} pointerEnabled={stageVisible && openingIndex === null && artistOpening === null && route.kind !== 'home' && route.kind !== 'register' && route.kind !== 'profile'} selectedIndex={wheelSceneIndex ?? openingIndex} detailMode={sceneIndex !== null} transitioning={openingIndex !== null} onSelect={openAlbum} onActiveChange={setActiveIndex} />
+       <Scene key={`${isArtistsMode ? 'artists' : isTracksMode ? 'tracks' : 'albums'}-v${sceneVersion}`} mode={isArtistsMode ? 'artists' : isTracksMode ? 'tracks' : 'albums'} settings={settings} scroll={scroll} detailScroll={detailScroll} pointerEnabled={stageVisible && openingIndex === null && artistOpening === null && route.kind !== 'home' && route.kind !== 'register' && route.kind !== 'profile'} selectedIndex={wheelSceneIndex ?? openingIndex} detailMode={sceneIndex !== null} transitioning={openingIndex !== null} onSelect={openAlbum} onActiveChange={setActiveIndex} />
       </Suspense>
       {import.meta.env.DEV && new URLSearchParams(location.search).has('perf') && <FrameProfiler />}
      </RenderQuality>
@@ -586,8 +608,26 @@ function App() {
     onNavigateToArtist={targetArtistIdx => goToArtist(targetArtistIdx, 0, 'album')}
    />
   )}
-  {route.kind === 'not-found' && <main className="album-not-found"><p>404</p><h1>Страница не найдена</h1><a href="/" onClick={mainHomeLink}>Вернуться на главную ↗</a></main>}
+  {route.kind === 'admin' && <AdminTracksPage onBackToHome={returnToHome} />}
+  {route.kind === 'not-found' && <main className="album-not-found"><p>404</p><h1>Страница не найдена</h1><a href="/" onClick={mainHomeLink}>Вернуться на главную</a></main>}
   {isGalleryRoute && <div className="scroll-space" style={{ height: `${(TOTAL_SCROLL_PAGES + 1) * 100}vh` }} aria-hidden="true" />}
+  <AudioPlayerBar
+   onOpenAlbum={(index, vote) => {
+    cancelOpening()
+    cancelArtistOpening()
+    goToAlbum(index, vote)
+   }}
+   onOpenTrack={(index, vote) => {
+    cancelOpening()
+    cancelArtistOpening()
+    goToTrack(index, vote)
+   }}
+   onOpenArtist={(targetArtistIdx, fromReleaseIdx, fromMode) => {
+    cancelOpening()
+    cancelArtistOpening()
+    goToArtist(targetArtistIdx, fromReleaseIdx, fromMode)
+   }}
+  />
  </div>
 }
 

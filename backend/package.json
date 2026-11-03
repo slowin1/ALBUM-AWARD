@@ -1,0 +1,32 @@
+{
+  "name": "album-awards-backend",
+  "version": "1.0.0",
+  "description": "Album Awards NestJS Backend with Prisma & PostgreSQL",
+  "scripts": {
+    "build": "nest build",
+    "start": "nest start",
+    "start:dev": "nest start --watch",
+    "start:debug": "nest start --debug --watch",
+    "start:prod": "node dist/main",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "postinstall": "prisma skills sync || exit 0"
+  },
+  "dependencies": {
+    "@nestjs/common": "^11.0.0",
+    "@nestjs/core": "^11.0.0",
+    "@nestjs/platform-express": "^11.0.0",
+    "@prisma/client": "^6.19.3",
+    "play-dl": "^1.9.7",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.1",
+    "youtube-sr": "^4.3.12"
+  },
+  "devDependencies": {
+    "@nestjs/cli": "^11.0.0",
+    "@types/node": "^22.0.0",
+    "prisma": "^6.19.3",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.7.0"
+  }
+}

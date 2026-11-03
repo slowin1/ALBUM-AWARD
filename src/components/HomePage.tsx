@@ -1,8 +1,18 @@
 import { useEffect, useMemo, useRef, useState, type MouseEvent, type PointerEvent } from 'react'
-import { allAlbums, allTracks, artists, getReleaseArtists, type ArtistDefinition } from '../data/artists'
+import {
+  allAlbums,
+  allTracks,
+  artists,
+  getReleaseArtists,
+  registerCustomSoundcloudTrack,
+  registerCustomSoundcloudAlbum,
+  type ArtistDefinition,
+} from '../data/artists'
 import { calculateAlbumScore, useAllUserRatings, type AlbumScores } from '../hooks/useAlbumRatings'
+import { playOrToggleAlbum, playOrToggleTrack, useReleasePlayback } from '../hooks/useAudioPlayer'
 import { useAuth } from '../hooks/useAuth'
 import { albumPath, artistPath, trackPath } from '../navigation/albumNavigation'
+import type { CustomSoundCloudTrack, CustomSoundCloudAlbum } from './AdminTracksPage'
 import './HomePage.css'
 
 type HomePageProps = {
@@ -26,6 +36,8 @@ type FeedRelease = {
   year: number
   cover: string
   baseScore: number
+  soundcloudUrl?: string
+  soundcloudTrackId?: string
 }
 
 type FreshmanCard = {
@@ -55,47 +67,9 @@ type FeedReview = {
   reviewText: string
 }
 
-const PRIORITY_RELEASES: Array<{ kind: 'album' | 'track'; id: string; baseScore: number }> = [
-  { kind: 'album', id: 'saluki-alb-6792926489', baseScore: 91 },
-  { kind: 'track', id: 'mulholland', baseScore: 89 },
-  { kind: 'album', id: 'villian-alb-6793617802', baseScore: 86 },
-  { kind: 'track', id: 'chudo-sveta', baseScore: 87 },
-  { kind: 'album', id: 'temny-princ-alb-6788463007', baseScore: 88 },
-  { kind: 'track', id: 'odnoy-iz', baseScore: 90 },
-  { kind: 'album', id: 'clout-alb-6799079876', baseScore: 84 },
-  { kind: 'track', id: 'homecoming', baseScore: 92 },
-  { kind: 'album', id: 'villian-alb-6790490405', baseScore: 85 },
-  { kind: 'track', id: 'zppp', baseScore: 83 },
-  { kind: 'album', id: 'madk1d-alb-1876651874', baseScore: 84 },
-  { kind: 'track', id: 'jealous', baseScore: 82 },
-  { kind: 'album', id: 'maladoy-prince-alb-1891876531', baseScore: 81 },
-  { kind: 'track', id: 'agentstvo-nasiliya', baseScore: 85 },
-  { kind: 'album', id: 'sqwoz-bab-alb-1883012941', baseScore: 80 },
-  { kind: 'track', id: 'oladushki', baseScore: 79 },
-  { kind: 'album', id: 'seemee-alb-1874282765', baseScore: 83 },
-  { kind: 'track', id: 'chuchuka', baseScore: 81 },
-  { kind: 'album', id: 'tri-dnya-dozhdya-alb-6820105047', baseScore: 82 },
-  { kind: 'track', id: 'swarovski', baseScore: 84 },
-  { kind: 'album', id: 'blonde', baseScore: 96 },
-  { kind: 'album', id: 'in-rainbows', baseScore: 97 },
-  { kind: 'album', id: 'igor', baseScore: 94 },
-  { kind: 'album', id: 'currents', baseScore: 93 },
-]
+const PRIORITY_RELEASES: Array<{ kind: 'album' | 'track'; id: string; baseScore: number }> = []
 
-const FRESHMEN_SLUGS: Array<{ id: string; tag: string }> = [
-  { id: 'temny-princ', tag: 'MILITANTUM · одной из' },
-  { id: 'villian', tag: 'Красивое Зло' },
-  { id: 'clout', tag: 'ОКО · Чудо Света' },
-  { id: '9mice', tag: 'SWAROVSKI · New Wave' },
-  { id: 'madk1d', tag: '8 миля · Jealous' },
-  { id: 'cupsize', tag: 'ЗППП' },
-  { id: 'sabu', tag: 'агентство насилия™' },
-  { id: 'maladoy-prince', tag: 'ДИЗАЙНЕР' },
-  { id: 'heronwater', tag: 'SWAROVSKI · Сезон 2026' },
-  { id: 'elyaplugg', tag: 'New Wave 2026' },
-  { id: 'gotlibgotlibgotlib', tag: 'агентство насилия™' },
-  { id: 'gorilla-glu', tag: 'Оладушки' },
-]
+const FRESHMEN_SLUGS: Array<{ id: string; tag: string }> = []
 
 type CuratedSeedReview = {
   uid: string
@@ -111,86 +85,7 @@ type CuratedSeedReview = {
   reviewText: string
 }
 
-const CURATED_REVIEWS: CuratedSeedReview[] = [
-  {
-    uid: 'seed-rev-1',
-    authorName: 'nikita_wav',
-    authorAvatar: '/artists/kai-angel.jpg',
-    verified: true,
-    baseLikes: 246,
-    timeLabel: '18 мин назад',
-    kind: 'album',
-    targetId: 'saluki-alb-6792926489',
-    scores: { rhymes: 9, structure: 9, style: 10, individuality: 9, atmosphere: 10 },
-    reviewTitle: 'Эталонный продакшн и выверенная драматургия',
-    reviewText: 'Переходы между треками собраны как единое полотно: живые ударные, плотный низ и очень точная работа с пространством. Релиз не проседает к середине и раскрывается с каждым повторным прослушиванием.',
-  },
-  {
-    uid: 'seed-rev-2',
-    authorName: 'kris_archive',
-    authorAvatar: '/artists/lida.jpg',
-    verified: true,
-    baseLikes: 184,
-    timeLabel: '45 мин назад',
-    kind: 'track',
-    targetId: 'mulholland',
-    scores: { rhymes: 8, structure: 9, style: 10, individuality: 9, atmosphere: 9 },
-    reviewTitle: 'Холодный ночной звук с цепкой ритмикой',
-    reviewText: 'Минималистичный синт-луп держит напряжение с первых секунд, а смена флоу во второй половине трека идеально разгоняет динамику. Лаконично, стильно и без лишних деталей.',
-  },
-  {
-    uid: 'seed-rev-3',
-    authorName: 'danila_sound',
-    authorAvatar: '/artists/mayot.jpg',
-    verified: true,
-    baseLikes: 312,
-    timeLabel: '2 ч назад',
-    kind: 'album',
-    targetId: 'temny-princ-alb-6788463007',
-    scores: { rhymes: 8, structure: 9, style: 9, individuality: 9, atmosphere: 10 },
-    reviewTitle: 'Мрачная эстетика, доведенная до почерка',
-    reviewText: 'Один из самых цельных дебютных полноформатников сезона. Перегруженные текстуры не спорят с вокалом, а цепкие припевы удерживают баланс между андеграундом и большим звуком.',
-  },
-  {
-    uid: 'seed-rev-4',
-    authorName: 'alya_ctrl',
-    authorAvatar: '/artists/trinadtsat-karat.jpg',
-    verified: false,
-    baseLikes: 129,
-    timeLabel: '3 ч назад',
-    kind: 'track',
-    targetId: 'chudo-sveta',
-    scores: { rhymes: 8, structure: 9, style: 9, individuality: 8, atmosphere: 10 },
-    reviewTitle: 'Воздушный звук и запоминающийся хук',
-    reviewText: 'Две минуты пролетают на одном дыхании: светлый мелодический рисунок поверх упругой перкуссии работает безотказно. Отличная заявка от нового имени в этом сезоне.',
-  },
-  {
-    uid: 'seed-rev-5',
-    authorName: 'mark_vinyl',
-    authorAvatar: '/artists/big-baby-tape.jpg',
-    verified: true,
-    baseLikes: 207,
-    timeLabel: '5 ч назад',
-    kind: 'album',
-    targetId: 'villian-alb-6793617802',
-    scores: { rhymes: 8, structure: 8, style: 9, individuality: 9, atmosphere: 9 },
-    reviewTitle: 'Плотный звук и уверенная харизма',
-    reviewText: 'Контраст агрессивных бэнгеров и более интроспективных треков ближе к финалу работает на общую идею релиза. Сильная реализация битов и узнаваемая подача.',
-  },
-  {
-    uid: 'seed-rev-6',
-    authorName: 'sergey_tape',
-    authorAvatar: '/artists/sqwoz-bab.jpg',
-    verified: false,
-    baseLikes: 275,
-    timeLabel: 'Вчера',
-    kind: 'album',
-    targetId: 'blonde',
-    scores: { rhymes: 10, structure: 9, style: 10, individuality: 10, atmosphere: 10 },
-    reviewTitle: 'Вневременная пластинка о памяти и тишине',
-    reviewText: 'Отсутствие привычных ударных в ключевых моментах делает каждую гитарную партию и вокальный дубль физически ощутимыми. Альбом, к которому возвращаешься независимо от сезона.',
-  },
-]
+const CURATED_REVIEWS: CuratedSeedReview[] = []
 
 function normalizeQuery(text: string): string {
   return text.trim().toLowerCase().replace(/ё/g, 'е')
@@ -212,6 +107,87 @@ function deterministicScore(seed: string): number {
   return 78 + (Math.abs(hash) % 16)
 }
 
+function ReleasePlayTrigger({
+  targetKey,
+  title,
+  onTrigger,
+}: {
+  targetKey: string
+  title: string
+  onTrigger: () => void
+}) {
+  const status = useReleasePlayback(targetKey)
+  const isActive = status !== 'idle'
+  const isPlaying = status === 'playing'
+  const isLoading = status === 'loading'
+
+  return (
+    <button
+      type="button"
+      className={`home-release-play-btn${isActive ? ' is-active' : ''}${isPlaying ? ' is-playing' : ''}`}
+      aria-label={isPlaying ? `Пауза: ${title}` : `Слушать: ${title}`}
+      title={isPlaying ? 'Пауза' : 'Слушать'}
+      onPointerDown={e => e.stopPropagation()}
+      onClick={e => {
+        e.preventDefault()
+        e.stopPropagation()
+        onTrigger()
+      }}
+    >
+      {isLoading ? (
+        <span className="home-play-spinner" aria-hidden="true" />
+      ) : isPlaying ? (
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <rect x="6.5" y="5" width="4" height="14" rx="1.2" />
+          <rect x="13.5" y="5" width="4" height="14" rx="1.2" />
+        </svg>
+      ) : (
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" className="home-play-tri">
+          <path d="M7.5 5.4c0-.85.94-1.36 1.66-.9l9.4 6c.66.42.66 1.38 0 1.8l-9.4 6c-.72.46-1.66-.05-1.66-.9v-12z" />
+        </svg>
+      )}
+    </button>
+  )
+}
+
+function ReviewPlayTrigger({
+  targetKey,
+  title,
+  onTrigger,
+}: {
+  targetKey: string
+  title: string
+  onTrigger: () => void
+}) {
+  const status = useReleasePlayback(targetKey)
+  const isActive = status !== 'idle'
+  const isPlaying = status === 'playing'
+  const isLoading = status === 'loading'
+
+  return (
+    <button
+      type="button"
+      className={`home-review-icon-btn${isActive ? ' is-active' : ''}`}
+      aria-label={isPlaying ? `Пауза: ${title}` : `Слушать: ${title}`}
+      title={isPlaying ? `Пауза: ${title}` : `Слушать: ${title}`}
+      onClick={onTrigger}
+    >
+      {isLoading ? (
+        <span className="home-play-spinner is-light" aria-hidden="true" />
+      ) : isPlaying ? (
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <rect x="6.5" y="5" width="4" height="14" rx="1.2" />
+          <rect x="13.5" y="5" width="4" height="14" rx="1.2" />
+        </svg>
+      ) : (
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d="M7.5 5.4c0-.85.94-1.36 1.66-.9l9.4 6c.66.42.66 1.38 0 1.8l-9.4 6c-.72.46-1.66-.05-1.66-.9v-12z" />
+        </svg>
+      )}
+    </button>
+  )
+}
+
 export function HomePage({
   onOpenAlbum,
   onOpenTrack,
@@ -229,10 +205,87 @@ export function HomePage({
   const [likedReviews, setLikedReviews] = useState<Record<string, boolean>>({})
   const [openScoreReviews, setOpenScoreReviews] = useState<Record<string, boolean>>({})
   const [expandedReviews, setExpandedReviews] = useState<Record<string, boolean>>({})
+  const [customTracks, setCustomTracks] = useState<CustomSoundCloudTrack[]>(() => {
+    try {
+      const raw = localStorage.getItem('aa_custom_tracks_cache')
+      if (raw) {
+        const parsed: CustomSoundCloudTrack[] = JSON.parse(raw)
+        if (Array.isArray(parsed)) {
+          parsed.forEach(t => registerCustomSoundcloudTrack(t))
+          return parsed
+        }
+      }
+    } catch {}
+    return []
+  })
+  const [customAlbums, setCustomAlbums] = useState<CustomSoundCloudAlbum[]>(() => {
+    try {
+      const raw = localStorage.getItem('aa_custom_albums_cache')
+      if (raw) {
+        const parsed: CustomSoundCloudAlbum[] = JSON.parse(raw)
+        if (Array.isArray(parsed)) {
+          parsed.forEach(a => registerCustomSoundcloudAlbum(a))
+          return parsed
+        }
+      }
+    } catch {}
+    return []
+  })
   const releasesRowRef = useRef<HTMLDivElement>(null)
   const dragStateRef = useRef({ active: false, startX: 0, scrollLeft: 0, dragged: false })
   const glareFrameRef = useRef(0)
   const glarePendingRef = useRef<{ el: HTMLElement; clientX: number; clientY: number } | null>(null)
+
+  useEffect(() => {
+    let active = true
+    const load = () => {
+      Promise.all([
+        fetch('/api/tracks').then(res => (res.ok ? res.json() : [])),
+        fetch('/api/albums').then(res => (res.ok ? res.json() : [])),
+        fetch('/api/scene/albums').then(res => (res.ok ? res.json() : [])),
+      ])
+        .then(([tData, aData, sData]: [CustomSoundCloudTrack[], CustomSoundCloudAlbum[], any[]]) => {
+          if (!active) return
+          if (Array.isArray(tData)) {
+            setCustomTracks(tData)
+            tData.forEach(t => registerCustomSoundcloudTrack(t))
+            try {
+              localStorage.setItem('aa_custom_tracks_cache', JSON.stringify(tData))
+            } catch {}
+          }
+          if (Array.isArray(aData)) {
+            setCustomAlbums(aData)
+            aData.forEach(a => registerCustomSoundcloudAlbum(a))
+            try {
+              localStorage.setItem('aa_custom_albums_cache', JSON.stringify(aData))
+            } catch {}
+          }
+          if (Array.isArray(sData)) {
+            sData.forEach((slot, idx) => {
+              if (slot && slot.soundcloudUrl) {
+                registerCustomSoundcloudAlbum({
+                  id: slot.id || `slot-album-${idx + 1}`,
+                  title: slot.title,
+                  artist: slot.artist,
+                  cover: slot.cover,
+                  soundcloudUrl: slot.soundcloudUrl,
+                  tracks: slot.tracks || [],
+                })
+              }
+            })
+          }
+        })
+        .catch(() => {})
+    }
+    load()
+    window.addEventListener('aa:custom_tracks_updated', load)
+    window.addEventListener('aa:scene_updated', load)
+    return () => {
+      active = false
+      window.removeEventListener('aa:custom_tracks_updated', load)
+      window.removeEventListener('aa:scene_updated', load)
+    }
+  }, [])
 
   useEffect(() => {
     return () => {
@@ -321,6 +374,52 @@ export function HomePage({
     const list: FeedRelease[] = []
     const seen = new Set<string>()
 
+    // Prepend user-added SoundCloud albums from Admin panel
+    for (const ca of customAlbums) {
+      const albDef = registerCustomSoundcloudAlbum(ca)
+      const idx = allAlbums.indexOf(albDef)
+      const uid = `album:${ca.id}`
+      if (!seen.has(uid)) {
+        seen.add(uid)
+        list.push({
+          uid,
+          kind: 'album',
+          index: idx >= 0 ? idx : allAlbums.length - 1,
+          id: ca.id,
+          title: ca.title,
+          artist: ca.artist,
+          year: ca.year || 2026,
+          cover: ca.cover,
+          baseScore: deterministicScore(ca.id),
+          soundcloudUrl: ca.soundcloudUrl,
+          soundcloudTrackId: ca.soundcloudPlaylistId,
+        })
+      }
+    }
+
+    // Prepend user-added SoundCloud releases from Admin panel so they appear first in the feed
+    for (const ct of customTracks) {
+      const trkDef = registerCustomSoundcloudTrack(ct)
+      const idx = allTracks.indexOf(trkDef)
+      const uid = `track:${ct.id}`
+      if (!seen.has(uid)) {
+        seen.add(uid)
+        list.push({
+          uid,
+          kind: 'track',
+          index: idx >= 0 ? idx : allTracks.length - 1,
+          id: ct.id,
+          title: ct.title,
+          artist: ct.artist,
+          year: 2026,
+          cover: ct.cover,
+          baseScore: deterministicScore(ct.id),
+          soundcloudUrl: ct.soundcloudUrl,
+          soundcloudTrackId: ct.soundcloudTrackId,
+        })
+      }
+    }
+
     for (const entry of PRIORITY_RELEASES) {
       if (entry.kind === 'album') {
         const idx = allAlbums.findIndex(a => a.id === entry.id)
@@ -403,7 +502,7 @@ export function HomePage({
     })
     rest.sort((a, b) => b.year - a.year)
     return [...list, ...rest]
-  }, [])
+  }, [customAlbums, customTracks])
 
   const freshmen = useMemo<FreshmanCard[]>(() => {
     const result: FreshmanCard[] = []
@@ -543,7 +642,9 @@ export function HomePage({
       if (releaseFilter === 'albums' && item.kind !== 'album') return false
       if (releaseFilter === 'tracks' && item.kind !== 'track') return false
       if (!query) return true
-      const haystack = normalizeQuery(`${item.title} ${item.artist} ${item.year}`)
+      const haystack = normalizeQuery(
+        `${item.title} ${item.artist} ${item.year} ${item.soundcloudUrl ? 'soundcloud саундклауд' : ''}`,
+      )
       return haystack.includes(query)
     })
   }, [allFeedReleases, releaseFilter, query])
@@ -576,8 +677,62 @@ export function HomePage({
     }
     if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
     event.preventDefault()
-    if (item.kind === 'album') onOpenAlbum(item.index, true)
-    else onOpenTrack(item.index, true)
+    if (item.kind === 'album') {
+      let idx = item.index
+      if (idx < 0 || idx >= allAlbums.length) {
+        const found = customAlbums.find(a => a.id === item.id)
+        if (found) {
+          const alb = registerCustomSoundcloudAlbum(found)
+          idx = allAlbums.indexOf(alb)
+        }
+      }
+      onOpenAlbum(idx >= 0 ? idx : 0, true)
+    } else {
+      let idx = item.index
+      if (idx < 0 || idx >= allTracks.length) {
+        const trk = registerCustomSoundcloudTrack({
+          id: item.id,
+          title: item.title,
+          artist: item.artist,
+          cover: item.cover,
+          soundcloudUrl: item.soundcloudUrl || '',
+          soundcloudTrackId: item.soundcloudTrackId,
+        })
+        idx = allTracks.indexOf(trk)
+      }
+      onOpenTrack(idx, true)
+    }
+  }
+
+  const handlePlayRelease = (item: FeedRelease) => {
+    if (item.kind === 'album') {
+      let alb = allAlbums[item.index]
+      if (!alb && item.soundcloudUrl) {
+        const found = customAlbums.find(a => a.id === item.id)
+        if (found) {
+          alb = registerCustomSoundcloudAlbum(found)
+        }
+      }
+      if (alb) void playOrToggleAlbum(alb)
+    } else {
+      let trk = allTracks[item.index]
+      if (!trk && item.soundcloudUrl) {
+        trk = registerCustomSoundcloudTrack({
+          id: item.id,
+          title: item.title,
+          artist: item.artist,
+          cover: item.cover,
+          soundcloudUrl: item.soundcloudUrl,
+          soundcloudTrackId: item.soundcloudTrackId,
+        })
+      }
+      if (!trk) return
+      const feedTracks = visibleReleases
+        .filter(r => r.kind === 'track')
+        .map(r => allTracks[r.index])
+        .filter(Boolean)
+      playOrToggleTrack(trk, feedTracks.length > 0 ? feedTracks : [trk])
+    }
   }
 
   const handleArtistChipClick = (
@@ -795,6 +950,11 @@ export function HomePage({
                       <span className={`home-release-badge is-${item.kind}`}>
                         {item.kind === 'album' ? 'Альбом' : 'Трек'}
                       </span>
+                      <ReleasePlayTrigger
+                        targetKey={item.uid}
+                        title={item.title}
+                        onTrigger={() => handlePlayRelease(item)}
+                      />
                       <span
                         className={`home-release-score${userScore !== undefined ? ' is-user' : ''}`}
                         title={userScore !== undefined ? 'Ваша оценка' : 'Средний балл'}
@@ -940,7 +1100,9 @@ export function HomePage({
           </div>
 
           {filteredReviews.length === 0 ? (
-            <div className="home-empty-box">Рецензии по вашему запросу не найдены.</div>
+            <div className="home-empty-box">
+              {query ? 'Рецензии по вашему запросу не найдены.' : 'Пока нет опубликованных рецензий. Оцените любой трек или альбом, и ваша рецензия появится здесь!'}
+            </div>
           ) : (
             <div className="home-reviews-grid">
               {filteredReviews.map(rev => {
@@ -1118,6 +1280,24 @@ export function HomePage({
                             <path d="M10 6h10M10 12h10M10 18h10" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
                           </svg>
                         </button>
+
+                        <ReviewPlayTrigger
+                          targetKey={
+                            rev.kind === 'album'
+                              ? `album:${allAlbums[rev.releaseIndex]?.id ?? ''}`
+                              : `track:${allTracks[rev.releaseIndex]?.id ?? ''}`
+                          }
+                          title={`${rev.releaseArtist} — ${rev.releaseTitle}`}
+                          onTrigger={() => {
+                            if (rev.kind === 'album') {
+                              const alb = allAlbums[rev.releaseIndex]
+                              if (alb) void playOrToggleAlbum(alb)
+                            } else {
+                              const trk = allTracks[rev.releaseIndex]
+                              if (trk) playOrToggleTrack(trk)
+                            }
+                          }}
+                        />
                       </div>
 
                       <div className="home-review-bottom-right">

@@ -80,6 +80,7 @@ function drawTitles(canvas: HTMLCanvasElement, items: ReadonlyArray<{ title: str
 }
 
 function useTitleAtlas(items: ReadonlyArray<{ title: string }>): Texture {
+ const titlesKey = items.map(i => i.title).join('|')
  const texture = useMemo(() => {
   const canvas = document.createElement('canvas')
   canvas.width = TITLE_ATLAS_COLUMNS * TILE_WIDTH
@@ -92,7 +93,7 @@ function useTitleAtlas(items: ReadonlyArray<{ title: string }>): Texture {
   atlas.generateMipmaps = false
   atlas.wrapS = atlas.wrapT = ClampToEdgeWrapping
   return atlas
- }, [items])
+ }, [titlesKey])
 
  useEffect(() => {
   let active = true
@@ -111,7 +112,7 @@ function useTitleAtlas(items: ReadonlyArray<{ title: string }>): Texture {
    active = false
    texture.dispose()
   }
- }, [texture, items])
+ }, [texture, titlesKey])
 
  return texture
 }

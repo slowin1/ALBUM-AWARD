@@ -19,34 +19,10 @@ export type UserPreferences = {
 
 export function getDefaultPreferences(): UserPreferences {
   return {
-    artists: [
-      { id: 'saluki', name: 'SALUKI', subtitle: 'Art-rap / Production', cover: '/artists/saluki.jpg' },
-      { id: 'frank-ocean', name: 'Frank Ocean', subtitle: 'Contemporary R&B', cover: '/artists/frank-ocean.jpg' },
-      { id: 'radiohead', name: 'Radiohead', subtitle: 'Art-rock / Electronic', cover: '/artists/radiohead.jpg' },
-      { id: 'kai-angel', name: 'Kai Angel', subtitle: 'Viperr / New Wave', cover: '/artists/kai-angel.jpg' },
-      { id: 'tyler-the-creator', name: 'Tyler, The Creator', subtitle: 'Alternative Hip-Hop', cover: '/artists/tyler-the-creator.jpg' },
-    ],
-    albums: [
-      { id: 'blonde', name: 'Blonde', subtitle: 'Frank Ocean · 2016', cover: '/covers/blonde.jpg' },
-      { id: 'in-rainbows', name: 'In Rainbows', subtitle: 'Radiohead · 2007', cover: '/covers/in-rainbows.jpg' },
-      { id: 'igor', name: 'IGOR', subtitle: 'Tyler, The Creator · 2019', cover: '/covers/igor.jpg' },
-      { id: 'random-access-memories', name: 'Random Access Memories', subtitle: 'Daft Punk · 2013', cover: '/covers/random-access-memories.jpg' },
-      { id: 'norman-fucking-rockwell', name: 'Norman Fucking Rockwell!', subtitle: 'Lana Del Rey · 2019', cover: '/covers/norman-fucking-rockwell.jpg' },
-    ],
-    producers: [
-      { id: 'skryptonite', name: 'Скриптонит', subtitle: 'Звукорежиссура & Мультиинструментал', cover: '/artists/basta.jpg' },
-      { id: 'metro-boomin', name: 'Metro Boomin', subtitle: 'Cinematic 808 & Dark Trap', cover: '/artists/kendrick-lamar.jpg' },
-      { id: 'saluki-prod', name: 'SALUKI', subtitle: 'Аналоговый продакшн & Саунд-дизайн', cover: '/artists/saluki.jpg' },
-      { id: 'white-punk', name: 'White Punk', subtitle: 'Dark Melodic Synth & Rock-Trap', cover: '/artists/big-baby-tape.jpg' },
-      { id: 'slava-marlow', name: 'Slava Marlow', subtitle: 'Hit Production & Punchy Bass', cover: '/artists/sqwoz-bab.jpg' },
-    ],
-    tracks: [
-      { id: 'mulholland', name: 'Mulholland', subtitle: 'Kai Angel', cover: '/covers/tracks/mulholland.jpg' },
-      { id: 'chudo-sveta', name: 'Чудо Света', subtitle: 'clout', cover: '/covers/tracks/chudo-sveta.jpg' },
-      { id: 'odnoy-iz', name: 'одной из', subtitle: 'тёмный принц', cover: '/covers/tracks/odnoy-iz.jpg' },
-      { id: 'homecoming', name: 'Homecoming', subtitle: 'SALUKI', cover: '/covers/tracks/homecoming.jpg' },
-      { id: 'nikes', name: 'Nikes', subtitle: 'Frank Ocean', cover: '/covers/blonde.jpg' },
-    ],
+    artists: [],
+    albums: [],
+    producers: [],
+    tracks: [],
     clipmakers: [],
     designers: [],
     soundEngineers: [],

@@ -3,6 +3,7 @@ import { albums, type AlbumDefinition } from '../data/albums'
 import { tracks, type TrackDefinition } from '../data/tracks'
 import { allAlbums, allTracks, artists, getReleaseArtists, type ArtistDefinition } from '../data/artists'
 import { calculateAlbumScore, useAlbumRatings } from '../hooks/useAlbumRatings'
+import { playOrToggleAlbum, playOrToggleTrack, useReleasePlayback } from '../hooks/useAudioPlayer'
 import { FluidBackground } from './FluidBackground'
 import './ArtistPage.css'
 
@@ -124,10 +125,40 @@ function ArtistReleaseCard({
   const score = saved === null ? null : calculateAlbumScore(saved)
   const scoreClass = score === null ? '' : score > 85 ? ' is-high-score' : score > 70 ? ' is-mid-score' : ' is-low-score'
   const isWheelAlbum = albums.some(candidate => candidate.id === album.id)
+  const playbackStatus = useReleasePlayback(`album:${album.id}`)
+  const isPlaying = playbackStatus === 'playing'
+  const isLoading = playbackStatus === 'loading'
+  const isActive = playbackStatus !== 'idle'
+
+  const handlePlay = () => {
+    void playOrToggleAlbum(album, 0)
+  }
 
   return (
     <article className="artist-page-release">
-      <img className="artist-page-release-cover" src={album.cover} alt="" width="168" height="168" loading="lazy" decoding="async" />
+      <div className="artist-page-cover-wrap">
+        <img className="artist-page-release-cover" src={album.cover} alt="" width="168" height="168" loading="lazy" decoding="async" />
+        <button
+          type="button"
+          className={`artist-page-cover-play${isActive ? ' is-active' : ''}`}
+          onClick={handlePlay}
+          aria-label={isPlaying ? `Пауза: ${album.title}` : `Слушать альбом ${album.title}`}
+          title={isPlaying ? 'Пауза' : 'Слушать альбом'}
+        >
+          {isLoading ? (
+            <span className="artist-play-spinner" aria-hidden="true" />
+          ) : isPlaying ? (
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <rect x="6.5" y="5" width="4" height="14" rx="1.2" />
+              <rect x="13.5" y="5" width="4" height="14" rx="1.2" />
+            </svg>
+          ) : (
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" className="artist-play-tri">
+              <path d="M7.5 5.4c0-.85.94-1.36 1.66-.9l9.4 6c.66.42.66 1.38 0 1.8l-9.4 6c-.72.46-1.66-.05-1.66-.9v-12z" />
+            </svg>
+          )}
+        </button>
+      </div>
       <div className="artist-page-release-description">
         <div className="artist-page-release-topline">
           <span className="artist-page-release-type">{isWheelAlbum ? 'Альбом · Номинант' : 'Альбом'}</span>
@@ -157,10 +188,19 @@ function ArtistReleaseCard({
         />
         <div className="artist-page-release-meta">
           <time dateTime={String(album.year)}>{album.year}</time>
-          <a className="artist-page-listen" href={album.sourceUrl} target="_blank" rel="noopener noreferrer">
-            Слушать <span aria-hidden="true">↗</span>
-            <span className="artist-page-sr-only"> альбом {album.title} — откроется в новой вкладке</span>
-          </a>
+          <div className="artist-page-release-links">
+            <button
+              type="button"
+              className={`artist-page-play-inline${isActive ? ' is-active' : ''}`}
+              onClick={handlePlay}
+            >
+              {isPlaying ? 'Пауза' : 'Слушать'}
+            </button>
+            <a className="artist-page-listen" href={album.sourceUrl} target="_blank" rel="noopener noreferrer">
+              Apple Music <span aria-hidden="true">↗</span>
+              <span className="artist-page-sr-only"> альбом {album.title} — откроется в новой вкладке</span>
+            </a>
+          </div>
         </div>
       </div>
     </article>
@@ -169,11 +209,13 @@ function ArtistReleaseCard({
 
 function ArtistTrackReleaseCard({
   track,
+  artistTracks,
   currentArtistId,
   onOpen,
   onSelectArtist,
 }: {
   track: TrackDefinition
+  artistTracks: TrackDefinition[]
   currentArtistId: string
   onOpen: (event: MouseEvent<HTMLAnchorElement>, track: TrackDefinition) => void
   onSelectArtist?: (event: MouseEvent<HTMLAnchorElement>, artist: ArtistDefinition) => void
@@ -182,10 +224,40 @@ function ArtistTrackReleaseCard({
   const score = saved === null ? null : calculateAlbumScore(saved)
   const scoreClass = score === null ? '' : score > 85 ? ' is-high-score' : score > 70 ? ' is-mid-score' : ' is-low-score'
   const isWheelTrack = tracks.some(candidate => candidate.id === track.id)
+  const playbackStatus = useReleasePlayback(`track:${track.id}`)
+  const isPlaying = playbackStatus === 'playing'
+  const isLoading = playbackStatus === 'loading'
+  const isActive = playbackStatus !== 'idle'
+
+  const handlePlay = () => {
+    playOrToggleTrack(track, artistTracks)
+  }
 
   return (
     <article className="artist-page-release">
-      <img className="artist-page-release-cover" src={track.cover} alt="" width="168" height="168" loading="lazy" decoding="async" />
+      <div className="artist-page-cover-wrap">
+        <img className="artist-page-release-cover" src={track.cover} alt="" width="168" height="168" loading="lazy" decoding="async" />
+        <button
+          type="button"
+          className={`artist-page-cover-play${isActive ? ' is-active' : ''}`}
+          onClick={handlePlay}
+          aria-label={isPlaying ? `Пауза: ${track.title}` : `Слушать трек ${track.title}`}
+          title={isPlaying ? 'Пауза' : 'Слушать трек'}
+        >
+          {isLoading ? (
+            <span className="artist-play-spinner" aria-hidden="true" />
+          ) : isPlaying ? (
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <rect x="6.5" y="5" width="4" height="14" rx="1.2" />
+              <rect x="13.5" y="5" width="4" height="14" rx="1.2" />
+            </svg>
+          ) : (
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" className="artist-play-tri">
+              <path d="M7.5 5.4c0-.85.94-1.36 1.66-.9l9.4 6c.66.42.66 1.38 0 1.8l-9.4 6c-.72.46-1.66-.05-1.66-.9v-12z" />
+            </svg>
+          )}
+        </button>
+      </div>
       <div className="artist-page-release-description">
         <div className="artist-page-release-topline">
           <span className="artist-page-release-type">{isWheelTrack ? 'Трек месяца' : 'Трек'}</span>
@@ -215,10 +287,19 @@ function ArtistTrackReleaseCard({
         />
         <div className="artist-page-release-meta">
           <time dateTime={String(track.year)}>{track.duration} · {track.year}</time>
-          <a className="artist-page-listen" href={track.sourceUrl} target="_blank" rel="noopener noreferrer">
-            Слушать <span aria-hidden="true">↗</span>
-            <span className="artist-page-sr-only"> трек {track.title} — откроется в новой вкладке</span>
-          </a>
+          <div className="artist-page-release-links">
+            <button
+              type="button"
+              className={`artist-page-play-inline${isActive ? ' is-active' : ''}`}
+              onClick={handlePlay}
+            >
+              {isPlaying ? 'Пауза' : 'Слушать'}
+            </button>
+            <a className="artist-page-listen" href={track.sourceUrl} target="_blank" rel="noopener noreferrer">
+              Apple Music <span aria-hidden="true">↗</span>
+              <span className="artist-page-sr-only"> трек {track.title} — откроется в новой вкладке</span>
+            </a>
+          </div>
         </div>
       </div>
     </article>
@@ -305,9 +386,29 @@ export function ArtistPage({
             <div className="artist-page-identity">
               <p className="artist-page-eyebrow">{awardMonth ? `Исполнитель месяца · ${awardMonth}` : 'Исполнитель'}</p>
               <h1 id="artist-page-title" ref={headingRef} tabIndex={-1}>{artist.name}</h1>
-              <a className="artist-page-collection-link" href="#artist-releases">
-                Альбомы и треки в коллекции <span aria-hidden="true">↗</span>
-              </a>
+              <div className="artist-page-hero-actions">
+                {(artist.tracks.length > 0 || artist.albums.length > 0) && (
+                  <button
+                    type="button"
+                    className="artist-page-hero-play"
+                    onClick={() => {
+                      if (artist.tracks.length > 0) {
+                        playOrToggleTrack(artist.tracks[0], artist.tracks)
+                      } else if (artist.albums.length > 0) {
+                        void playOrToggleAlbum(artist.albums[0], 0)
+                      }
+                    }}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                      <path d="M7.5 5.4c0-.85.94-1.36 1.66-.9l9.4 6c.66.42.66 1.38 0 1.8l-9.4 6c-.72.46-1.66-.05-1.66-.9v-12z" />
+                    </svg>
+                    <span>Слушать исполнителя</span>
+                  </button>
+                )}
+                <a className="artist-page-collection-link" href="#artist-releases">
+                  Альбомы и треки в коллекции <span aria-hidden="true">↗</span>
+                </a>
+              </div>
             </div>
 
             <dl className="artist-page-stats">
@@ -363,6 +464,7 @@ export function ArtistPage({
                 <ArtistTrackReleaseCard
                   key={release.id}
                   track={release}
+                  artistTracks={artist.tracks}
                   currentArtistId={artist.id}
                   onOpen={openTrack}
                   onSelectArtist={selectCollaborator}

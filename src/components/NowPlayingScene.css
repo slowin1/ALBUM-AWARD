@@ -1,0 +1,362 @@
+.np-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  background: #020408;
+  color: #f2f0f7;
+  animation: npFadeIn 0.5s ease-out;
+  overscroll-behavior: none;
+  touch-action: none;
+}
+
+@keyframes npFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.np-canvas {
+  position: absolute;
+  inset: 0;
+}
+
+.np-close {
+  position: absolute;
+  top: 29px;
+  left: 50%;
+  transform: translateX(-50%);
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-width: 140px;
+  height: 48px;
+  padding: 0 20px;
+  border: 1px solid rgb(255 255 255 / 16%);
+  border-radius: 999px;
+  color: #c9c9cb;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  background: linear-gradient(105deg, rgb(7 7 8 / 94%), rgb(16 16 17 / 88%) 48%, rgb(35 35 36 / 94%));
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  cursor: pointer;
+  transition: transform 0.2s ease, color 0.2s ease, opacity 0.5s ease;
+}
+
+.np-close.is-idle {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.np-close:hover {
+  transform: translateX(-50%) translateY(-1px);
+  color: #ffffff;
+}
+
+.np-lyrics {
+  position: absolute;
+  top: 110px;
+  bottom: 70px;
+  right: clamp(24px, 6vw, 96px);
+  width: min(560px, 44vw);
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  z-index: 2;
+}
+
+.np-lyrics-head {
+  flex-shrink: 0;
+}
+
+.np-title {
+  margin: 0 0 4px;
+  font-size: clamp(22px, 2.6vw, 34px);
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  color: #ffffff;
+}
+
+.np-artist {
+  margin: 0;
+  font-size: 14px;
+  color: rgba(220, 218, 232, 0.65);
+}
+
+.np-lyrics-list {
+  overscroll-behavior: contain;
+  flex: 1 1 auto;
+  overflow-y: auto;
+  position: relative;
+  padding: 36% 0;
+  scrollbar-width: none;
+  mask-image: linear-gradient(180deg, transparent, #000 18%, #000 82%, transparent);
+  -webkit-mask-image: linear-gradient(180deg, transparent, #000 18%, #000 82%, transparent);
+}
+
+.np-lyrics-list::-webkit-scrollbar {
+  display: none;
+}
+
+.np-status {
+  margin: 0;
+  font-size: 15px;
+  color: rgba(220, 218, 232, 0.55);
+}
+
+.np-line {
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: 7px 0;
+  border: 0;
+  background: none;
+  text-align: left;
+  font-family: inherit;
+  font-size: clamp(20px, 2.3vw, 30px);
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: -0.02em;
+  color: rgba(255, 255, 255, 0.28);
+  cursor: pointer;
+  transform-origin: left center;
+  transition: color 0.35s ease, transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+  outline: none;
+  border-radius: 0;
+  box-shadow: none;
+  text-shadow: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.np-line:hover {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.np-line:focus,
+.np-line:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.np-line.is-past {
+  color: rgba(255, 255, 255, 0.2);
+}
+
+.np-line.is-active {
+  color: #ffffff;
+  transform: scale(1.04);
+}
+
+.np-word {
+  --p: 0;
+  display: inline-block;
+  margin-right: 0.26em;
+  color: transparent;
+  background-image: linear-gradient(
+    90deg,
+    #ffffff calc(var(--p) * 112% - 12%),
+    rgba(255, 255, 255, 0.34) calc(var(--p) * 112%)
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.np-line.is-plain {
+  cursor: default;
+  font-size: 18px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.78);
+}
+
+@media (max-width: 900px) {
+  .np-lyrics {
+    left: 24px;
+    right: 24px;
+    width: auto;
+    top: 52vh;
+    bottom: 40px;
+  }
+
+  .np-lyrics-list {
+    padding: 14% 0;
+  }
+
+  .np-lyrics-head {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .np-overlay { animation: none; }
+  .np-line { transition: none; }
+}
+
+.np-controls {
+  position: absolute;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 240px;
+  transition: opacity 0.4s ease;
+  pointer-events: none;
+}
+
+.np-seek {
+  position: relative;
+  height: 18px;
+  display: flex;
+  align-items: center;
+}
+
+.np-seek-track {
+  position: relative;
+  width: 100%;
+  height: 5px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(6px);
+  transition: height 0.15s ease;
+}
+
+.np-seek:hover .np-seek-track {
+  height: 8px;
+}
+
+.np-seek-fill {
+  width: var(--np-pct);
+  height: 100%;
+  border-radius: inherit;
+  background: #ffffff;
+}
+
+.np-seek-thumb {
+  position: absolute;
+  top: 50%;
+  left: var(--np-pct);
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: #ffffff;
+  transform: translate(-50%, -50%) scale(0);
+  transition: transform 0.15s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+}
+
+.np-seek:hover .np-seek-thumb {
+  transform: translate(-50%, -50%) scale(1);
+}
+
+.np-seek-input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.np-times {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.np-transport {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 26px;
+}
+
+.np-btn {
+  margin: 0;
+  padding: 0;
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.9);
+  cursor: pointer;
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+
+.np-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.np-btn:active {
+  transform: scale(0.92);
+}
+
+.np-btn.is-main {
+  width: 60px;
+  height: 60px;
+  background: rgba(255, 255, 255, 0.14);
+  backdrop-filter: blur(10px);
+  color: #ffffff;
+}
+
+.np-btn.is-main:hover {
+  background: rgba(255, 255, 255, 0.24);
+}
+
+.np-spinner {
+  width: 22px;
+  height: 22px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #ffffff;
+  border-radius: 50%;
+  animation: npSpin 0.7s linear infinite;
+}
+
+@keyframes npSpin {
+  to { transform: rotate(360deg); }
+}
+
+.np-lyrics,
+.np-close {
+  animation: npUiIn 0.6s ease-out 0.25s backwards;
+}
+
+.np-close {
+  animation-name: npCloseIn;
+}
+
+@keyframes npUiIn {
+  from { opacity: 0; transform: translateY(18px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes npCloseIn {
+  from { opacity: 0; transform: translateX(-50%) translateY(-10px); }
+  to { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .np-lyrics, .np-close { animation: none; }
+}
+
+.np-tint {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  mix-blend-mode: screen;
+  background:
+    radial-gradient(58% 70% at 24% 52%, rgb(var(--np-rgb) / 0.7), transparent 75%),
+    radial-gradient(75% 65% at 85% 100%, rgb(var(--np-rgb) / 0.32), transparent 72%),
+    linear-gradient(rgb(var(--np-rgb) / 0.12), rgb(var(--np-rgb) / 0.12));
+  transition: background 0.8s ease;
+}

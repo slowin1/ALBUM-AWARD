@@ -183,7 +183,7 @@ export function Scene({ mode = 'albums', settings, scroll, detailScroll, pointer
  </>
 }
 
-function NightSky({ animate, speed }: { animate: boolean; speed: number }) {
+export function NightSky({ animate, speed }: { animate: boolean; speed: number }) {
  const material = useRef<ShaderMaterial>(null)
  const geometry = useMemo(() => {
   const g = new BufferGeometry()

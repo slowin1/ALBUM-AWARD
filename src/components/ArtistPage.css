@@ -125,9 +125,44 @@
 }
 
 .artist-page-collection-link {
-  margin-top: 18px;
+  margin-top: 0;
   color: #aaa7a2;
   gap: 10px;
+}
+
+.artist-page-hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px 24px;
+  margin-top: 22px;
+}
+
+.artist-page-hero-play {
+  margin: 0;
+  height: 42px;
+  padding: 0 18px;
+  border-radius: 999px;
+  border: 1px solid rgb(255 255 255 / 24%);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.05)), #151518;
+  box-shadow:
+    inset 0 1px 0.5px rgb(255 255 255 / 34%),
+    0 8px 20px -6px rgb(0 0 0 / 50%);
+  color: #f4f3f0;
+  font-size: 12px;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
+}
+
+.artist-page-hero-play:hover {
+  background: linear-gradient(180deg, #ffffff 0%, #e7e5ee 100%);
+  border-color: #ffffff;
+  color: #0d0e12;
+  transform: translateY(-1px);
 }
 
 .artist-page-collection-link span {
@@ -310,10 +345,19 @@
   outline-offset: 5px;
 }
 
+.artist-page-cover-wrap {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 16px;
+  overflow: hidden;
+  background: #141416;
+}
+
 .artist-page-release-cover {
   display: block;
   width: 100%;
-  height: auto;
+  height: 100%;
   aspect-ratio: 1;
   object-fit: cover;
   border-radius: 16px;
@@ -321,7 +365,83 @@
 }
 
 .artist-page-release:hover .artist-page-release-cover {
-  transform: scale(1.025);
+  transform: scale(1.03);
+}
+
+.artist-page-cover-play {
+  position: absolute;
+  bottom: 8px;
+  left: 8px;
+  z-index: 2;
+  margin: 0;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid rgb(255 255 255 / 32%);
+  background: linear-gradient(135deg, rgba(22, 23, 30, 0.88), rgba(10, 10, 14, 0.94));
+  box-shadow:
+    inset 0 1px 0.5px rgb(255 255 255 / 34%),
+    0 8px 18px rgb(0 0 0 / 55%);
+  color: #ffffff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0;
+  transform: translateY(4px) scale(0.94);
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s cubic-bezier(0.22, 1, 0.36, 1),
+    background 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease;
+}
+
+.artist-page-release:hover .artist-page-cover-play,
+.artist-page-release:focus-within .artist-page-cover-play,
+.artist-page-cover-play.is-active {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+.artist-page-cover-play:hover,
+.artist-page-cover-play.is-active {
+  background: linear-gradient(180deg, #ffffff 0%, #e7e5ee 100%);
+  border-color: #ffffff;
+  color: #0d0e12;
+}
+
+.artist-play-tri {
+  transform: translateX(1px);
+}
+
+.artist-play-spinner {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid rgb(255 255 255 / 26%);
+  border-top-color: currentColor;
+  animation: artist-play-spin 0.7s linear infinite;
+}
+
+.artist-page-cover-play:hover .artist-play-spinner,
+.artist-page-cover-play.is-active .artist-play-spinner {
+  border-color: rgb(13 14 18 / 24%);
+  border-top-color: #0d0e12;
+}
+
+@keyframes artist-play-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (hover: none) {
+  .artist-page-cover-play {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 .artist-page-release-description {
@@ -482,11 +602,40 @@
   font-variant-numeric: tabular-nums;
 }
 
+.artist-page-release-links {
+  position: relative;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.artist-page-play-inline {
+  margin: 0;
+  height: 28px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid rgb(255 255 255 / 18%);
+  background: rgb(255 255 255 / 6%);
+  color: #e4e2dd;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+}
+
+.artist-page-play-inline:hover,
+.artist-page-play-inline.is-active {
+  background: #f2f1ed;
+  border-color: #f2f1ed;
+  color: #101012;
+}
+
 .artist-page .artist-page-listen {
   position: relative;
   z-index: 2;
   min-height: 32px;
-  gap: 10px;
+  gap: 8px;
   color: #aaa7a2;
   white-space: nowrap;
 }

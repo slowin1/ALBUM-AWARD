@@ -8,140 +8,97 @@ export type TrackDefinition = {
   duration: string
   cover: string
   sourceUrl: string
+  audioUrl?: string
+  soundcloudUrl?: string
+  soundcloudTrackId?: string
 }
 
-// 12 signature tracks — Номинация «Треки месяца» премии Album Awards.
-export const tracks: TrackDefinition[] = [
-  {
-    id: 'mulholland',
-    albumId: 'mulholland',
-    title: 'Mulholland',
-    albumTitle: 'Shh...',
-    artist: 'Kai Angel',
-    year: 2026,
-    duration: '2:38',
-    cover: '/covers/tracks/mulholland.jpg',
-    sourceUrl: 'https://music.apple.com/md/album/shh/6808162752',
-  },
-  {
-    id: 'chudo-sveta',
-    albumId: 'chudo-sveta',
-    title: 'Чудо Света',
-    albumTitle: 'ОКО',
-    artist: 'clout',
-    year: 2026,
-    duration: '2:05',
-    cover: '/covers/tracks/chudo-sveta.jpg',
-    sourceUrl: 'https://music.apple.com/ru/album/%D0%BE%D0%BA%D0%BE-ep/6799079876',
-  },
-  {
-    id: 'odnoy-iz',
-    albumId: 'odnoy-iz',
-    title: 'одной из',
-    albumTitle: 'MILITANTUM',
-    artist: 'тёмный принц',
-    year: 2026,
-    duration: '2:45',
-    cover: '/covers/tracks/odnoy-iz.jpg',
-    sourceUrl: 'https://music.apple.com/us/album/militantum/6788463007',
-  },
-  {
-    id: 'homecoming',
-    albumId: 'homecoming',
-    title: 'homecoming',
-    albumTitle: 'EUPHORIA',
-    artist: 'SALUKI',
-    year: 2026,
-    duration: '2:47',
-    cover: '/covers/tracks/homecoming.jpg',
-    sourceUrl: 'https://music.apple.com/ru/album/homecoming/6781239641?i=6781239642',
-  },
-  {
-    id: 'zppp',
-    albumId: 'zppp',
-    title: 'ЗППП',
-    albumTitle: 'заставь меня плакать',
-    artist: 'CUPSIZE',
-    year: 2026,
-    duration: '2:29',
-    cover: '/covers/tracks/zppp.jpg',
-    sourceUrl: 'https://music.apple.com/us/album/%D0%B7%D0%B0%D1%81%D1%82%D0%B0%D0%B2%D1%8C-%D0%BC%D0%B5%D0%BD%D1%8F-%D0%BF%D0%BB%D0%B0%D0%BA%D0%B0%D1%82%D1%8C/6773480488',
-  },
-  {
-    id: 'jealous',
-    albumId: 'jealous',
-    title: 'Jealous',
-    albumTitle: 'Jealous',
-    artist: '9mice, ЕГОР КРИД, тёмный принц, madk1d',
-    year: 2026,
-    duration: '3:05',
-    cover: '/covers/tracks/jealous.jpg',
-    sourceUrl: 'https://music.apple.com/ao/album/jealous-single/1889890379',
-  },
-  {
-    id: 'agentstvo-nasiliya',
-    albumId: 'agentstvo-nasiliya',
-    title: 'агентство насилия™',
-    albumTitle: 'агентство насилия™',
-    artist: 'gotlibgotlibgotlib, SABU',
-    year: 2026,
-    duration: '2:15',
-    cover: '/covers/tracks/agentstvo-nasiliya.jpg',
-    sourceUrl: 'https://music.apple.com/fi/album/%D0%B0%D0%B3%D0%B5%D0%BD%D1%82%D1%81%D1%82%D0%B2%D0%BE-%D0%BD%D0%B0%D1%81%D0%B8%D0%BB%D0%B8%D1%8F-single/1881948606',
-  },
-  {
-    id: 'oladushki',
-    albumId: 'oladushki',
-    title: 'Оладушки',
-    albumTitle: 'RUSSIAN TRAP HOUSE',
-    artist: 'GORILLA GLU, LIL NAKU, Maladoy Prince',
-    year: 2026,
-    duration: '2:28',
-    cover: '/covers/tracks/oladushki.jpg',
-    sourceUrl: 'https://music.apple.com/mz/album/russian-trap-house/1886007297',
-  },
-  {
-    id: 'chuchuka',
-    albumId: 'chuchuka',
-    title: 'Chuchuka',
-    albumTitle: 'Chuchuka',
-    artist: 'Big Baby Tape',
-    year: 2024,
-    duration: '2:19',
-    cover: '/covers/tracks/chuchuka.jpg',
-    sourceUrl: 'https://music.apple.com/ru/album/chuchuka/1784471405?i=1784471407',
-  },
-  {
-    id: 'swarovski',
-    albumId: 'swarovski',
-    title: 'Сваровски',
-    albumTitle: 'Сваровски',
-    artist: 'Heronwater',
-    year: 2024,
-    duration: '2:41',
-    cover: '/covers/tracks/swarovski.jpg',
-    sourceUrl: 'https://music.apple.com/au/album/%D1%81%D0%B2%D0%B0%D1%80%D0%BE%D0%B2%D1%81%D0%BA%D0%B8-single/1778194678',
-  },
-  {
-    id: 'vodopadami',
-    albumId: 'vodopadami',
-    title: 'водопадами',
-    albumTitle: 'водопадами',
-    artist: 'тринадцать карат, мартин',
-    year: 2025,
-    duration: '2:23',
-    cover: '/covers/tracks/vodopadami.jpg',
-    sourceUrl: 'https://music.apple.com/ru/album/%D0%B2%D0%BE%D0%B4%D0%BE%D0%BF%D0%B0%D0%B4%D0%B0%D0%BC%D0%B8/1844700331?i=1844700332',
-  },
-  {
-    id: 'paket',
-    albumId: 'paket',
-    title: 'ПАКЕТ',
-    albumTitle: 'WOMANIZER',
-    artist: 'SQWOZ BAB',
-    year: 2026,
-    duration: '3:29',
-    cover: '/covers/tracks/paket.jpg',
-    sourceUrl: 'https://music.apple.com/ru/album/%D0%BF%D0%B0%D0%BA%D0%B5%D1%82/1879851196?i=1879851197',
-  },
-]
+const DEFAULT_COVER = '/covers/placeholder.jpg'
+
+export const INITIAL_TRACKS: TrackDefinition[] = Array.from({ length: 12 }, (_, i) => ({
+  id: `slot-track-${i + 1}`,
+  albumId: `slot-track-${i + 1}`,
+  title: `Слот ${i + 1}`,
+  albumTitle: 'Сингл',
+  artist: 'Исполнитель',
+  year: 2026,
+  duration: '3:00',
+  cover: DEFAULT_COVER,
+  sourceUrl: '',
+  soundcloudUrl: '',
+}))
+
+function loadCachedTracks(): TrackDefinition[] {
+  if (typeof window === 'undefined') return [...INITIAL_TRACKS]
+  try {
+    const raw = localStorage.getItem('aa_scene_tracks')
+    if (raw) {
+      const parsed = JSON.parse(raw)
+      if (Array.isArray(parsed) && parsed.length >= 12) {
+        return parsed.slice(0, 12)
+      }
+    }
+  } catch {}
+  return [...INITIAL_TRACKS]
+}
+
+export const tracks: TrackDefinition[] = loadCachedTracks()
+
+export function updateSceneTrackSlot(slotIndex: number, updated: Partial<TrackDefinition>) {
+  if (slotIndex < 0 || slotIndex >= 12) return
+  tracks[slotIndex] = { ...tracks[slotIndex], ...updated }
+  try {
+    localStorage.setItem('aa_scene_tracks', JSON.stringify(tracks))
+  } catch {}
+  fetch('/api/scene/slot', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ type: 'track', slotIndex, data: updated }),
+  }).catch(() => {})
+  window.dispatchEvent(new CustomEvent('aa:scene_updated'))
+}
+
+export function setSceneTracks(newTracks: TrackDefinition[]) {
+  if (!Array.isArray(newTracks) || newTracks.length < 12) return
+  for (let i = 0; i < 12; i++) {
+    tracks[i] = { ...tracks[i], ...newTracks[i] }
+  }
+  try {
+    localStorage.setItem('aa_scene_tracks', JSON.stringify(tracks))
+  } catch {}
+  fetch('/api/scene/tracks', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ tracks: tracks.slice(0, 12) }),
+  }).catch(() => {})
+  window.dispatchEvent(new CustomEvent('aa:scene_updated'))
+}
+
+// Background sync from backend on startup
+if (typeof window !== 'undefined') {
+  fetch('/api/scene/tracks')
+    .then(res => (res.ok ? res.json() : null))
+    .then(data => {
+      if (Array.isArray(data) && data.length >= 12) {
+        let changed = false
+        for (let i = 0; i < 12; i++) {
+          if (
+            tracks[i].title !== data[i].title ||
+            tracks[i].cover !== data[i].cover ||
+            tracks[i].artist !== data[i].artist ||
+            tracks[i].soundcloudUrl !== data[i].soundcloudUrl
+          ) {
+            tracks[i] = { ...tracks[i], ...data[i] }
+            changed = true
+          }
+        }
+        if (changed) {
+          try {
+            localStorage.setItem('aa_scene_tracks', JSON.stringify(tracks))
+          } catch {}
+          window.dispatchEvent(new CustomEvent('aa:scene_updated'))
+        }
+      }
+    })
+    .catch(() => {})
+}

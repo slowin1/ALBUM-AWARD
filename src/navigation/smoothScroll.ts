@@ -170,6 +170,7 @@ export function installSmoothScroll(): SmoothScrollController {
 
 export const stopSmoothScroll = () => activeController?.stop()
 export const syncSmoothScroll = () => activeController?.sync()
+export const setSmoothScrollLocked = (locked: boolean) => activeController?.setLocked(locked)
 
 export function scrollToPosition(top: number, immediate = false) {
  if (activeController) activeController.scrollTo(top, { immediate })

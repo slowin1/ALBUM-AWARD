@@ -12,42 +12,11 @@ export type ArtistDefinition = {
   monthAwards: MonthArtist[]
 }
 
-const albumArtistIds: Record<string, string> = {
-  Radiohead: 'radiohead',
-  'Daft Punk': 'daft-punk',
-  'Frank Ocean': 'frank-ocean',
-  'Tyler, The Creator': 'tyler-the-creator',
-  'Lana Del Rey': 'lana-del-rey',
-  'Tame Impala': 'tame-impala',
-  'Kendrick Lamar': 'kendrick-lamar',
-  'Massive Attack': 'massive-attack',
-  Portishead: 'portishead',
-  'Aphex Twin': 'aphex-twin',
-  'Pink Floyd': 'pink-floyd',
-  Deftones: 'deftones',
-}
+const albumArtistIds: Record<string, string> = {}
 
-const trackArtistIds: Record<string, string> = {
-  'Kai Angel': 'kai-angel',
-  clout: 'clout',
-  'тёмный принц': 'temny-princ',
-  SALUKI: 'saluki',
-  CUPSIZE: 'cupsize',
-  '9mice, ЕГОР КРИД, тёмный принц, madk1d': '9mice',
-  'gotlibgotlibgotlib, SABU': 'sabu',
-  'GORILLA GLU, LIL NAKU, Maladoy Prince': 'maladoy-prince',
-  'Big Baby Tape': 'big-baby-tape',
-  Heronwater: 'heronwater',
-  'тринадцать карат, мартин': 'trinadtsat-karat',
-  'SQWOZ BAB': 'sqwoz-bab',
-}
+const trackArtistIds: Record<string, string> = {}
 
-const canonicalArtistNames: Record<string, string> = {
-  '9mice': '9mice',
-  sabu: 'SABU',
-  'maladoy-prince': 'Maladoy Prince',
-  'trinadtsat-karat': 'тринадцать карат',
-}
+const canonicalArtistNames: Record<string, string> = {}
 
 function slugifyArtistName(name: string): string {
   return name
@@ -102,7 +71,7 @@ for (const album of albums) {
     existing.albums.push(album)
   } else {
     const id = albumArtistIds[album.artist] ?? slugifyArtistName(album.artist)
-    artists.push({ id, name: album.artist, avatar: `/artists/${id}.jpg`, albums: [album], tracks: [], monthAwards: [] })
+    artists.push({ id, name: album.artist, avatar: album.cover || '/covers/placeholder.jpg', albums: [album], tracks: [], monthAwards: [] })
   }
 }
 
@@ -113,7 +82,7 @@ for (const track of tracks) {
   if (existing) {
     existing.tracks.push(track)
   } else {
-    artists.push({ id, name: canonicalName, avatar: `/artists/${id}.jpg`, albums: [], tracks: [track], monthAwards: [] })
+    artists.push({ id, name: canonicalName, avatar: track.cover || '/covers/placeholder.jpg', albums: [], tracks: [track], monthAwards: [] })
   }
 }
 
@@ -188,7 +157,7 @@ for (const artist of artists) {
 }
 
 // Ensure every collaborator mentioned on any album or track is linked to that release and has a page in `artists`
-function findOrCreateArtist(name: string, fallbackCover: string): ArtistDefinition {
+export function findOrCreateArtist(name: string, fallbackCover: string): ArtistDefinition {
   const lower = name.toLowerCase()
   const existing = artists.find(a => a.name.toLowerCase() === lower || a.id === lower)
   if (existing) return existing
@@ -252,7 +221,96 @@ export function getAlbumArtist(album: AlbumDefinition): ArtistDefinition {
   if (releaseArtists.length > 0) return releaseArtists[0]
   const owner = artists.find(candidate => candidate.albums.some(a => a.id === album.id))
   if (owner) return owner
-  throw new Error(`Artist is missing from the catalogue: ${album.artist}`)
+  return findOrCreateArtist(album.artist, album.cover)
+}
+
+export type CustomSoundCloudAlbumInput = {
+  id: string
+  title: string
+  artist: string
+  artistId?: string
+  year?: number
+  cover: string
+  soundcloudUrl: string
+  soundcloudPlaylistId?: string
+  tracks?: Array<{
+    id: string
+    title: string
+    artist?: string
+    artistId?: string
+    duration?: string
+    soundcloudUrl?: string
+    soundcloudTrackId?: string
+    cover?: string
+  }>
+}
+
+export function registerCustomSoundcloudAlbum(custom: CustomSoundCloudAlbumInput): AlbumDefinition {
+  const existing = allAlbums.find(
+    a => a.id === custom.id || (custom.soundcloudUrl && a.soundcloudUrl === custom.soundcloudUrl),
+  )
+
+  const albDef: AlbumDefinition = existing ?? {
+    id: custom.id,
+    title: custom.title,
+    artist: custom.artist,
+    year: custom.year || 2026,
+    cover: custom.cover,
+    sourceUrl: custom.soundcloudUrl,
+    soundcloudUrl: custom.soundcloudUrl,
+    soundcloudPlaylistId: custom.soundcloudPlaylistId,
+    tracks: custom.tracks,
+  }
+
+  if (existing && custom.tracks && (!existing.tracks || existing.tracks.length === 0)) {
+    existing.tracks = custom.tracks
+  }
+
+  if (!existing) {
+    allAlbums.push(albDef)
+
+    let targetArtist: ArtistDefinition | undefined
+    if (custom.artistId) {
+      targetArtist = artists.find(a => a.id === custom.artistId)
+    }
+    if (!targetArtist) {
+      targetArtist = artists.find(a => a.name.toLowerCase() === custom.artist.toLowerCase())
+    }
+
+    if (targetArtist) {
+      albumArtistIds[albDef.artist] = targetArtist.id
+      if (!targetArtist.albums.some(a => a.id === albDef.id || a.title.toLowerCase() === albDef.title.toLowerCase())) {
+        targetArtist.albums.unshift(albDef)
+      }
+    } else {
+      const names = parseArtistNames(albDef.artist, albDef.title)
+      for (const name of names) {
+        const art = findOrCreateArtist(name, albDef.cover)
+        if (!art.albums.some(a => a.id === albDef.id)) {
+          art.albums.push(albDef)
+        }
+      }
+    }
+  }
+
+  if (custom.tracks && Array.isArray(custom.tracks)) {
+    custom.tracks.forEach((t, i) => {
+      registerCustomSoundcloudTrack({
+        id: t.id || `${custom.id}-trk-${i + 1}`,
+        albumId: albDef.id,
+        title: t.title,
+        albumTitle: albDef.title,
+        artist: t.artist || albDef.artist,
+        artistId: t.artistId || custom.artistId,
+        cover: t.cover || albDef.cover,
+        duration: t.duration || '3:30',
+        soundcloudUrl: t.soundcloudUrl || albDef.soundcloudUrl || '',
+        soundcloudTrackId: t.soundcloudTrackId,
+      })
+    })
+  }
+
+  return albDef
 }
 
 export function getTrackArtist(track: TrackDefinition): ArtistDefinition {
@@ -267,11 +325,118 @@ export function getTrackArtist(track: TrackDefinition): ArtistDefinition {
   if (releaseArtists.length > 0) return releaseArtists[0]
   const owner = artists.find(candidate => candidate.tracks.some(t => t.id === track.id))
   if (owner) return owner
-  throw new Error(`Artist is missing from the catalogue: ${track.artist}`)
+  return findOrCreateArtist(track.artist, track.cover)
+}
+
+export type CustomSoundCloudTrackInput = {
+  id: string
+  albumId?: string
+  title: string
+  artist: string
+  artistId?: string
+  artistIds?: string[]
+  albumTitle?: string
+  cover: string
+  duration?: string
+  soundcloudUrl: string
+  soundcloudTrackId?: string
+}
+
+export function registerCustomSoundcloudTrack(custom: CustomSoundCloudTrackInput): TrackDefinition {
+  const existing = allTracks.find(
+    t => t.id === custom.id || (custom.soundcloudUrl && t.soundcloudUrl === custom.soundcloudUrl),
+  )
+  if (existing) {
+    return existing
+  }
+
+  const def: TrackDefinition = {
+    id: custom.id,
+    albumId: custom.albumId || `sc-${custom.id}`,
+    title: custom.title,
+    albumTitle: custom.albumTitle || 'SoundCloud Single',
+    artist: custom.artist,
+    year: 2026,
+    duration: custom.duration || '3:30',
+    cover: custom.cover,
+    sourceUrl: custom.soundcloudUrl,
+    soundcloudUrl: custom.soundcloudUrl,
+    soundcloudTrackId: custom.soundcloudTrackId,
+  }
+
+  allTracks.push(def)
+
+  let targetArtist: ArtistDefinition | undefined
+  if (custom.artistId) {
+    targetArtist = artists.find(a => a.id === custom.artistId)
+  }
+  if (!targetArtist) {
+    targetArtist = artists.find(a => a.name.toLowerCase() === custom.artist.toLowerCase())
+  }
+
+  if (targetArtist) {
+    trackArtistIds[def.artist] = targetArtist.id
+    if (!targetArtist.tracks.some(t => t.id === def.id || t.title.toLowerCase() === def.title.toLowerCase())) {
+      targetArtist.tracks.unshift(def)
+    }
+  }
+
+  // Parse all collaborator names (e.g. "Платина, OG Buda" -> ["Платина", "OG Buda"])
+  const names = parseArtistNames(def.artist, def.title)
+  for (const name of names) {
+    const art = findOrCreateArtist(name, def.cover)
+    if (!art.tracks.some(t => t.id === def.id || t.title.toLowerCase() === def.title.toLowerCase())) {
+      art.tracks.unshift(def)
+    }
+  }
+
+  if (Array.isArray(custom.artistIds)) {
+    for (const aId of custom.artistIds) {
+      const art = artists.find(a => a.id === aId)
+      if (art && !art.tracks.some(t => t.id === def.id || t.title.toLowerCase() === def.title.toLowerCase())) {
+        art.tracks.unshift(def)
+      }
+    }
+  }
+
+  return def
+}
+
+export function unregisterCustomSoundcloudAlbum(id: string) {
+  const albIdx = allAlbums.findIndex(a => a.id === id)
+  const albumTitle = albIdx >= 0 ? allAlbums[albIdx].title.toLowerCase() : ''
+  if (albIdx >= 0) {
+    allAlbums.splice(albIdx, 1)
+  }
+  // Remove tracks belonging to this album
+  for (let i = allTracks.length - 1; i >= 0; i--) {
+    if (allTracks[i].albumId === id || (albumTitle && allTracks[i].albumTitle.toLowerCase() === albumTitle)) {
+      allTracks.splice(i, 1)
+    }
+  }
+  // Clean up artist models
+  for (const art of artists) {
+    art.albums = art.albums.filter(a => a.id !== id && (albumTitle ? a.title.toLowerCase() !== albumTitle : true))
+    art.tracks = art.tracks.filter(t => t.albumId !== id && (albumTitle ? t.albumTitle.toLowerCase() !== albumTitle : true))
+  }
+}
+
+export function unregisterCustomSoundcloudTrack(id: string) {
+  const trkIdx = allTracks.findIndex(t => t.id === id)
+  if (trkIdx >= 0) {
+    allTracks.splice(trkIdx, 1)
+  }
+  for (const art of artists) {
+    art.tracks = art.tracks.filter(t => t.id !== id)
+  }
 }
 
 export function getMonthArtist(award: MonthArtist): ArtistDefinition {
-  const artist = artists.find(candidate => candidate.id === award.pageId || candidate.name === award.artist)
-  if (!artist) throw new Error(`Month artist is missing from the catalogue: ${award.artist}`)
+  let artist = artists.find(
+    candidate => candidate.id === award.pageId || candidate.name.toLowerCase() === award.artist.toLowerCase() || candidate.name.toLowerCase() === award.title.toLowerCase(),
+  )
+  if (!artist) {
+    artist = findOrCreateArtist(award.artist || award.title, award.cover)
+  }
   return artist
 }

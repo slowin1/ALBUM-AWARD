@@ -1,0 +1,80 @@
+[
+  {
+    "id": "trk-1793737586412",
+    "title": "вонючий чел",
+    "artist": "PLOHOYPAREN",
+    "artistId": "plohoyparen",
+    "albumTitle": "Сингл",
+    "cover": "https://i1.sndcdn.com/artworks-8a5f0AE95VijAfIe-PBzndQ-t500x500.jpg",
+    "duration": "3:30",
+    "soundcloudUrl": "https://soundcloud.com/whoplohoyparen/ya-ne-ponimayu-ikh-vonyuchiy-chel",
+    "soundcloudTrackId": "2113488144",
+    "createdAt": "2026-11-03T20:26:26.412Z"
+  },
+  {
+    "id": "trk-1793737396387",
+    "title": "Филки",
+    "artist": "PLOHOYPAREN, Платина",
+    "artistId": "plohoyparen",
+    "albumTitle": "Сингл",
+    "cover": "https://i1.sndcdn.com/artworks-lcXZOyxAiFnP0Tev-SlZP6Q-t500x500.jpg",
+    "duration": "3:30",
+    "soundcloudUrl": "https://soundcloud.com/whoplohoyparen/platina-plohoyparen-filki",
+    "soundcloudTrackId": "2180986827",
+    "createdAt": "2026-11-03T20:23:16.387Z",
+    "artistIds": [
+      "plohoyparen",
+      "платина"
+    ]
+  },
+  {
+    "id": "trk-1793737363139",
+    "title": "Типок",
+    "artist": "PLOHOYPAREN",
+    "artistId": "plohoyparen",
+    "albumTitle": "Сингл",
+    "cover": "https://i1.sndcdn.com/artworks-eissXB3jufZBEwEs-f7l0Dg-t500x500.jpg",
+    "duration": "3:30",
+    "soundcloudUrl": "https://soundcloud.com/whoplohoyparen/tipok",
+    "soundcloudTrackId": "2191577359",
+    "createdAt": "2026-11-03T20:22:43.139Z"
+  },
+  {
+    "id": "trk-1793737338787",
+    "title": "Метель",
+    "artist": "PLOHOYPAREN",
+    "albumTitle": "Сингл",
+    "cover": "https://i1.sndcdn.com/artworks-rebj9uqDePKlJpz5-rQRvnQ-t500x500.jpg",
+    "duration": "3:30",
+    "soundcloudUrl": "https://soundcloud.com/whoplohoyparen/metel",
+    "soundcloudTrackId": "2366785574",
+    "createdAt": "2026-11-03T20:22:18.787Z"
+  },
+  {
+    "id": "trk-1793737112335",
+    "title": "MARTINE ROSE",
+    "artist": "greyrock, madk1d, tewiq",
+    "artistId": "greyrock",
+    "albumTitle": "Сингл",
+    "cover": "https://i1.sndcdn.com/artworks-MfCAzZkACYlmRbHf-6L1vjQ-t500x500.jpg",
+    "duration": "3:30",
+    "soundcloudUrl": "https://soundcloud.com/greyrock1/martine-rose-madk1d-tewiq",
+    "soundcloudTrackId": "2181153871",
+    "createdAt": "2026-11-03T20:18:32.335Z",
+    "artistIds": [
+      "greyrock",
+      "madk1d"
+    ]
+  },
+  {
+    "id": "trk-1793737009617",
+    "title": "распять",
+    "artist": "greyrock",
+    "albumTitle": "Сингл",
+    "cover": "https://i1.sndcdn.com/artworks-4DiiRHPqL4afkR4D-O2moLw-t500x500.jpg",
+    "duration": "3:30",
+    "soundcloudUrl": "https://soundcloud.com/greyrock1/raspyat",
+    "soundcloudTrackId": "2053875692",
+    "createdAt": "2026-11-03T20:16:49.617Z"
+  }
+]

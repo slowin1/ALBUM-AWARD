@@ -13,6 +13,7 @@ export type AlbumRoute =
  | { kind: 'artists' }
  | { kind: 'register' }
  | { kind: 'profile' }
+ | { kind: 'admin' }
  | { kind: 'album'; index: number }
  | { kind: 'track'; index: number }
  | { kind: 'month-artist'; index: number }
@@ -92,6 +93,7 @@ function currentRoute(): AlbumRoute {
  if (path === '/month-artists') return { kind: 'artists' }
  if (path === '/register') return { kind: 'register' }
  if (path === '/profile') return { kind: 'profile' }
+ if (path === '/admin') return { kind: 'admin' }
  const match = /^\/(album|track|month-artist|artist)\/([^/]+)$/.exec(path)
  if (!match) return { kind: 'not-found' }
  try {
@@ -476,5 +478,15 @@ export function useAlbumNavigation() {
         : albumForArtist(artistIndex, location.scroll.returnAlbumIndex))
   : null
  const openedFromHome = location.scroll.returnHome === true
- return { route: location.route, location, openedFromHome, goToHome, goToAlbum, goToTrack, goToMonthArtist, goToArtist, returnToAlbum, goToGallery, goToTracks, goToArtists, goToRegister, goToProfile, artistAlbumIndex, artistFromTrack, artistFromMonthArtist }
+ const goToAdmin = useCallback(() => {
+  stopSmoothScroll()
+  cancelScrollSave()
+  const route = currentRoute()
+  if (route.kind === 'admin') return
+  const data = rememberScroll()
+  window.history.pushState({ albumAwards: { homeScrollY: data.homeScrollY, galleryProgress: data.galleryProgress, tracksProgress: data.tracksProgress, artistsProgress: data.artistsProgress } }, '', '/admin' + window.location.search)
+  setLocation(readLocation())
+ }, [cancelScrollSave])
+
+ return { route: location.route, location, openedFromHome, goToHome, goToAlbum, goToTrack, goToMonthArtist, goToArtist, returnToAlbum, goToGallery, goToTracks, goToArtists, goToRegister, goToProfile, goToAdmin, artistAlbumIndex, artistFromTrack, artistFromMonthArtist }
 }
