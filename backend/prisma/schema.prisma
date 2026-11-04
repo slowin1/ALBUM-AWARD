@@ -7,65 +7,252 @@ generator client {
   provider = "prisma-client-js"
 }
 
+// 1. Пользователь
 model User {
   id            String       @id @default(uuid())
   nickname      String       @unique
   email         String       @unique
-  bio           String?
+  passwordHash  String?
+  provider      String?      @default("local") // 'local' | 'telegram' | 'google' | 'apple'
+  role          String       @default("user")  // 'user' | 'admin'
+  bio           String?      @db.Text
   favoriteGenre String?
   avatarUrl     String?
-  provider      String?      // 'local' | 'telegram' | 'google' | 'apple'
+  avatarSymbol  String?
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
 
   preferences   Preference?
-  ratings       Rating[]
+  reviews       Review[]
+  votes         Vote[]
+  likes         ReviewLike[]
 }
 
+// 2. Топ-5 предпочтений пользователя в профиле
 model Preference {
-  id          String   @id @default(uuid())
-  userId      String   @unique
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id            String       @id @default(uuid())
+  userId        String       @unique
+  user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  // JSON arrays of Top-5 items for each category
-  artists     Json?    // [{ id, name, cover, note }]
-  albums      Json?
-  tracks      Json?
-  producers   Json?
-  clipmakers  Json?
-  designers   Json?
+  // JSON массивы Топ-5 для каждой категории
+  artists       Json?        // [{ id, name, cover, note }]
+  albums        Json?
+  tracks        Json?
+  producers     Json?
+  clipmakers    Json?
+  designers     Json?
   soundengineers Json?
 
-  updatedAt   DateTime @updatedAt
+  updatedAt     DateTime     @updatedAt
 }
 
-model Rating {
-  id               String   @id @default(uuid())
-  userId           String
-  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+// 3. Артист
+model Artist {
+  id            String       @id @default(uuid())
+  name          String
+  slug          String       @unique
+  avatar        String
+  bio           String?      @db.Text
+  genres        String[]     @default([])
 
-  releaseType      String   // 'album' | 'track' | 'month-artist'
-  releaseId        String   // e.g. 'heavy-metal-2' or 'mulholland'
-  
-  // Criteria scores (0 to 10)
-  rhymesScore      Int?     @default(0)
-  structureScore   Int?     @default(0)
-  styleScore       Int?     @default(0)
-  individualityScore Int?   @default(0)
-  atmosphereScore  Int?     @default(0)
+  // Фрешмены и сезонные награды
+  isFreshman    Boolean      @default(false)
+  freshmanYear  Int?
+  breakoutTitle String?
+  monthAward    String?      // e.g. "Сезон 2026"
+  isNominee     Boolean      @default(false)
 
-  // 1-5 multiplier / coefficient
-  multiplier       Int?     @default(1)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
 
-  // Overall calculated score
-  totalScore       Float
+  // Связи
+  albums        Album[]
+  tracks        Track[]      // Many-to-many (сольные и фиты)
+  freshman      Freshman?
+  slots         SceneSlot[]
 
-  reviewText       String?  @db.Text
-  likesCount       Int      @default(0)
+  @@index([slug])
+  @@index([name])
+}
 
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+// 4. Альбом
+model Album {
+  id                   String   @id @default(uuid())
+  title                String
+  slug                 String   @unique
+  year                 Int?
+  cover                String
+  description          String?  @db.Text
 
-  @@unique([userId, releaseType, releaseId])
-  @@index([releaseId])
+  // SoundCloud / стриминг
+  soundcloudUrl        String?
+  soundcloudPlaylistId String?
+  sourceUrl            String?
+
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  // Связи
+  artistId             String?
+  artist               Artist?  @relation(fields: [artistId], references: [id], onDelete: SetNull)
+
+  tracks               Track[]
+  reviews              Review[]
+  slots                SceneSlot[]
+
+  @@index([slug])
+  @@index([title])
+  @@index([artistId])
+}
+
+// 5. Трек
+model Track {
+  id                String   @id @default(uuid())
+  title             String
+  duration          String?
+  cover             String
+  artistDisplay     String?  // e.g. "163ONMYNECK feat. OG Buda"
+  audioUrl          String?
+  soundcloudUrl     String?
+  soundcloudTrackId String?
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Связи
+  albumId           String?
+  album             Album?   @relation(fields: [albumId], references: [id], onDelete: Cascade)
+
+  artists           Artist[] // Many-to-many: все авторы и совместки
+  reviews           Review[]
+  lyrics            Lyrics?
+  slots             SceneSlot[]
+
+  @@index([title])
+  @@index([albumId])
+}
+
+// 6. Фрешмен года / номинация
+model Freshman {
+  id         String   @id @default(uuid())
+  year       Int      @default(2026)
+  tag        String?  // Например: "Прорыв года"
+  order      Int      @default(0)
+  votesCount Int      @default(0)
+
+  // Связь с артистом
+  artistId   String   @unique
+  artist     Artist   @relation(fields: [artistId], references: [id], onDelete: Cascade)
+
+  createdAt  DateTime @default(now())
+}
+
+// 7. Рецензия
+model Review {
+  id                 String   @id @default(uuid())
+
+  userId             String
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  albumId            String?
+  album              Album?   @relation(fields: [albumId], references: [id], onDelete: Cascade)
+
+  trackId            String?
+  track              Track?   @relation(fields: [trackId], references: [id], onDelete: Cascade)
+
+  // Текст рецензии
+  title              String?
+  text               String?  @db.Text
+
+  // Оценки по критериям (0-10)
+  rhymesScore        Int?     @default(0)
+  structureScore     Int?     @default(0)
+  styleScore         Int?     @default(0)
+  individualityScore Int?     @default(0)
+  atmosphereScore    Int?     @default(0)
+
+  multiplier         Int?     @default(1)
+  totalScore         Float    @default(0)
+
+  likesCount         Int      @default(0)
+  likes              ReviewLike[]
+
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@unique([userId, albumId])
+  @@index([userId])
+  @@index([albumId])
+  @@index([trackId])
+}
+
+// 8. Голосование (артист месяца / альбом года)
+model Vote {
+  id         String   @id @default(uuid())
+  category   String   // 'album_of_the_year' | 'month_artist'
+  targetId   String   // ID альбома или артиста, за которого проголосовали
+  season     String   @default("2026")
+
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt  DateTime @default(now())
+
+  @@unique([userId, category, season])
+}
+
+// 9. Слоты 3D-сцены
+model SceneSlot {
+  id          String   @id @default(uuid())
+  type        String   // 'artist' | 'album' | 'track'
+  slotIndex   Int      // 0..11
+
+  artistId    String?
+  artist      Artist?  @relation(fields: [artistId], references: [id], onDelete: SetNull)
+
+  albumId     String?
+  album       Album?   @relation(fields: [albumId], references: [id], onDelete: SetNull)
+
+  trackId     String?
+  track       Track?   @relation(fields: [trackId], references: [id], onDelete: SetNull)
+
+  customTitle String?
+  customCover String?
+
+  updatedAt   DateTime @updatedAt
+
+  @@unique([type, slotIndex])
+}
+
+// 10. Тексты песен и караоке
+model Lyrics {
+  id        String   @id @default(uuid())
+  artist    String
+  title     String
+  synced    String?  @db.Text
+  plain     String?  @db.Text
+  source    String   @default("lrclib") // 'lrclib' | 'genius' | 'manual'
+
+  trackId   String?  @unique
+  track     Track?   @relation(fields: [trackId], references: [id], onDelete: SetNull)
+
+  updatedAt DateTime @updatedAt
+
+  @@unique([artist, title])
+  @@index([artist, title])
+}
+
+// 11. Лайк на рецензию
+model ReviewLike {
+  id        String   @id @default(uuid())
+
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  reviewId  String
+  review    Review   @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([userId, reviewId])
 }
