@@ -46,30 +46,36 @@ model Preference {
   updatedAt     DateTime     @updatedAt
 }
 
-// 3. Артист
+// 3. Артист / Саунд-продюсер
 model Artist {
-  id            String       @id @default(uuid())
-  name          String
-  slug          String       @unique
-  avatar        String
-  bio           String?      @db.Text
-  genres        String[]     @default([])
+  id             String       @id @default(uuid())
+  name           String
+  slug           String       @unique
+  avatar         String
+  bio            String?      @db.Text
+  genres         String[]     @default([])
+
+  // Саунд-продакшн (битмейкер / продюсер)
+  isProducer     Boolean      @default(false)
+  producerTag    String?      // Например: "Metro Boomin want some more" или "Aarne, piece of shit"
 
   // Фрешмены и сезонные награды
-  isFreshman    Boolean      @default(false)
-  freshmanYear  Int?
-  breakoutTitle String?
-  monthAward    String?      // e.g. "Сезон 2026"
-  isNominee     Boolean      @default(false)
+  isFreshman     Boolean      @default(false)
+  freshmanYear   Int?
+  breakoutTitle  String?
+  monthAward     String?      // e.g. "Сезон 2026"
+  isNominee      Boolean      @default(false)
 
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
 
   // Связи
-  albums        Album[]
-  tracks        Track[]      // Many-to-many (сольные и фиты)
-  freshman      Freshman?
-  slots         SceneSlot[]
+  albums         Album[]      @relation("AlbumArtists")
+  producedAlbums Album[]      @relation("AlbumProducers")
+  tracks         Track[]      @relation("TrackArtists")   // Треки, где артист у микрофона (фиты и сольные)
+  producedTracks Track[]      @relation("TrackProducers") // Треки, где артист написал бит / саунд-продюсер
+  freshman       Freshman?
+  slots          SceneSlot[]
 
   @@index([slug])
   @@index([name])
@@ -94,7 +100,8 @@ model Album {
 
   // Связи
   artistId             String?
-  artist               Artist?  @relation(fields: [artistId], references: [id], onDelete: SetNull)
+  artist               Artist?  @relation("AlbumArtists", fields: [artistId], references: [id], onDelete: SetNull)
+  producers            Artist[] @relation("AlbumProducers") // Продюсеры альбома
 
   tracks               Track[]
   reviews              Review[]
@@ -123,7 +130,8 @@ model Track {
   albumId           String?
   album             Album?   @relation(fields: [albumId], references: [id], onDelete: Cascade)
 
-  artists           Artist[] // Many-to-many: все авторы и совместки
+  artists           Artist[] @relation("TrackArtists")   // У микрофона (сольные и фиты)
+  producers         Artist[] @relation("TrackProducers") // Саунд-продюсеры (биты / продакшн)
   reviews           Review[]
   lyrics            Lyrics?
   slots             SceneSlot[]
