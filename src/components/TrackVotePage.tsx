@@ -208,7 +208,14 @@ export function TrackVotePage({ track, index, onBack, backHref = '/tracks', back
               savedReviewTitle={rating.savedReviewTitle}
               savedReview={rating.savedReview}
               persistent={rating.persistent}
-              onSave={rating.save}
+              onSave={(scores, review, title) =>
+                rating.save(scores, review, title, {
+                  title: track.title,
+                  artist: track.artist,
+                  cover: track.cover,
+                  year: track.year,
+                })
+              }
               onRemove={rating.remove}
               reviewTitleLabel="Заголовок рецензии"
               reviewTitlePlaceholder="Например: Сильнейший припев и холодный вайб…"

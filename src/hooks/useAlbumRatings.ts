@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from 'react'
+import { getAuthToken } from './useAuth'
 
 export const SCORE_CRITERIA = [
   { id: 'rhymes', label: 'Рифмы / образы' },
@@ -13,6 +14,13 @@ export type AlbumScores = Record<(typeof SCORE_CRITERIA)[number]['id'], number>
 export type AlbumReview = {
   title: string
   text: string
+}
+
+export type ReviewItemMetadata = {
+  title?: string
+  artist?: string
+  cover?: string
+  year?: number
 }
 
 export const DEFAULT_SCORES: AlbumScores = Object.freeze({
@@ -206,7 +214,12 @@ function subscribe(listener: () => void) {
   }
 }
 
-function update(albumId: string, scores: AlbumScores | null, reviewEntry: AlbumReview | null) {
+function update(
+  albumId: string,
+  scores: AlbumScores | null,
+  reviewEntry: AlbumReview | null,
+  metadata?: ReviewItemMetadata,
+) {
   if (albumId.length === 0) return
   getSnapshot()
   let ratings = withPending(snapshot.ratings)
@@ -246,6 +259,89 @@ function update(albumId: string, scores: AlbumScores | null, reviewEntry: AlbumR
     }
     publish(ratings, reviews, false)
   }
+
+  // Синхронизация с базой данных PostgreSQL при наличии авторизации
+  const token = getAuthToken()
+  if (token) {
+    if (scores === null || reviewEntry === null) {
+      fetch(`/api/reviews/${encodeURIComponent(albumId)}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      }).catch(() => {})
+    } else {
+      fetch('/api/reviews', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          targetId: albumId,
+          targetType: albumId.startsWith('track:') ? 'track' : albumId.startsWith('month-artist:') ? 'artist' : 'album',
+          title: reviewEntry.title,
+          text: reviewEntry.text,
+          scores,
+          itemTitle: metadata?.title,
+          itemArtist: metadata?.artist,
+          itemCover: metadata?.cover,
+          itemYear: metadata?.year,
+        }),
+      }).catch(() => {})
+    }
+  }
+}
+
+let backendSyncStarted = false
+
+export async function syncReviewsFromBackend() {
+  const token = getAuthToken()
+  if (!token) return
+  try {
+    const res = await fetch('/api/reviews/my', {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    if (!res.ok) return
+    const dbReviews: any[] = await res.json()
+    if (!Array.isArray(dbReviews)) return
+
+    getSnapshot()
+    const stored = readStorage(window.localStorage.getItem(STORAGE_KEY))
+    const ratings = withPending(stored.ratings)
+    const reviews = withPendingReviews(stored.reviews)
+
+    for (const r of dbReviews) {
+      const targetId = r.targetId
+      if (!targetId) continue
+      ratings[targetId] = {
+        rhymes: r.rhymesScore ?? 5,
+        structure: r.structureScore ?? 5,
+        style: r.styleScore ?? 5,
+        individuality: r.individualityScore ?? 5,
+        atmosphere: r.atmosphereScore ?? 5,
+      }
+      reviews[targetId] = {
+        title: r.title || 'Рецензия',
+        text: r.text || '',
+      }
+    }
+
+    try {
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: 2, ratings, reviews }))
+    } catch {}
+    publish(ratings, reviews, true)
+  } catch {
+    // Best effort background sync
+  }
+}
+
+if (typeof window !== 'undefined' && !backendSyncStarted) {
+  backendSyncStarted = true
+  setTimeout(() => {
+    void syncReviewsFromBackend()
+  }, 120)
+  window.addEventListener('aa:auth_login', () => {
+    void syncReviewsFromBackend()
+  })
 }
 
 /** Per-album/track demo ratings and required written reviews, shared across forms and browser tabs. */
@@ -257,11 +353,11 @@ export function useAlbumRatings(albumId: string) {
     savedReviewTitle: reviewObj?.title ?? '',
     savedReview: reviewObj?.text ?? '',
     persistent: state.persistent,
-    save(scores: AlbumScores, reviewText: string, reviewTitle: string) {
+    save(scores: AlbumScores, reviewText: string, reviewTitle: string, metadata?: ReviewItemMetadata) {
       const normalized = normalizeScores(scores)
       const normalizedReview = normalizeReviewEntry({ title: reviewTitle, text: reviewText })
       if (normalized !== null && normalizedReview !== null) {
-        update(albumId, normalized, normalizedReview)
+        update(albumId, normalized, normalizedReview, metadata)
       }
     },
     remove() { update(albumId, null, null) },

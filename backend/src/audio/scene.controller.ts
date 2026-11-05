@@ -1,5 +1,6 @@
-import { Body, Controller, Get, Post, HttpStatus, HttpException } from '@nestjs/common';
+import { Body, Controller, Get, Post, HttpStatus, HttpException, UseGuards } from '@nestjs/common';
 import { AudioService } from './audio.service';
+import { AdminGuard } from '../auth/admin.guard';
 
 @Controller('scene')
 export class SceneController {
@@ -11,6 +12,7 @@ export class SceneController {
   }
 
   @Post('albums')
+  @UseGuards(AdminGuard)
   saveSceneAlbums(@Body() body: { albums: any[] }) {
     if (!Array.isArray(body?.albums)) {
       throw new HttpException('albums array required', HttpStatus.BAD_REQUEST);
@@ -24,6 +26,7 @@ export class SceneController {
   }
 
   @Post('tracks')
+  @UseGuards(AdminGuard)
   saveSceneTracks(@Body() body: { tracks: any[] }) {
     if (!Array.isArray(body?.tracks)) {
       throw new HttpException('tracks array required', HttpStatus.BAD_REQUEST);
@@ -37,6 +40,7 @@ export class SceneController {
   }
 
   @Post('artists')
+  @UseGuards(AdminGuard)
   saveSceneArtists(@Body() body: { artists: any[] }) {
     if (!Array.isArray(body?.artists)) {
       throw new HttpException('artists array required', HttpStatus.BAD_REQUEST);
@@ -45,6 +49,7 @@ export class SceneController {
   }
 
   @Post('slot')
+  @UseGuards(AdminGuard)
   updateSlot(@Body() body: { type: 'album' | 'track' | 'artist'; slotIndex: number; data: any }) {
     if (body.slotIndex < 0 || body.slotIndex >= 12 || !body.data) {
       throw new HttpException('Valid slotIndex (0-11) and data required', HttpStatus.BAD_REQUEST);

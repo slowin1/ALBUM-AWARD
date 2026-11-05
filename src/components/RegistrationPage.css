@@ -312,9 +312,15 @@
 }
 
 .registration-socials {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
+  display: flex;
+  justify-content: center;
+  min-height: 44px;
+}
+
+.registration-google-btn {
+  display: flex;
+  justify-content: center;
+  color-scheme: light;
 }
 
 .registration-social-btn {

@@ -1,3 +1,5 @@
+import { getAuthToken } from '../hooks/useAuth'
+
 export type MonthArtist = {
   id: string
   /** Name shown on the wheel title. */
@@ -47,9 +49,13 @@ export function updateSceneArtistSlot(slotIndex: number, updated: Partial<MonthA
   try {
     localStorage.setItem('aa_scene_artists', JSON.stringify(monthArtists))
   } catch {}
+  const token = getAuthToken()
   fetch('/api/scene/slot', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
     body: JSON.stringify({ type: 'artist', slotIndex, data: updated }),
   }).catch(() => {})
   window.dispatchEvent(new CustomEvent('aa:scene_updated'))
@@ -63,9 +69,13 @@ export function setSceneArtists(newArtists: MonthArtist[]) {
   try {
     localStorage.setItem('aa_scene_artists', JSON.stringify(monthArtists))
   } catch {}
+  const token = getAuthToken()
   fetch('/api/scene/artists', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
     body: JSON.stringify({ artists: monthArtists.slice(0, 12) }),
   }).catch(() => {})
   window.dispatchEvent(new CustomEvent('aa:scene_updated'))

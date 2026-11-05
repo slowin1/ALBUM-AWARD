@@ -296,7 +296,14 @@ export function AlbumVotePage({ album, index, onBack, backHref = '/albums', back
               savedReviewTitle={rating.savedReviewTitle}
               savedReview={rating.savedReview}
               persistent={rating.persistent}
-              onSave={rating.save}
+              onSave={(scores, review, title) =>
+                rating.save(scores, review, title, {
+                  title: album.title,
+                  artist: album.artist,
+                  cover: album.cover,
+                  year: album.year,
+                })
+              }
               onRemove={rating.remove}
               reviewTitleLabel="Заголовок рецензии"
               reviewTitlePlaceholder="Например: Цельный концепт и безупречный продакшн…"

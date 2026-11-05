@@ -120,7 +120,13 @@ export function MonthArtistVotePage({
               savedReviewTitle={rating.savedReviewTitle}
               savedReview={rating.savedReview}
               persistent={rating.persistent}
-              onSave={rating.save}
+              onSave={(scores, review, title) =>
+                rating.save(scores, review, title, {
+                  title: monthArtist.title,
+                  artist: monthArtist.artist,
+                  cover: monthArtist.cover,
+                })
+              }
               onRemove={rating.remove}
               reviewTitleLabel="Заголовок рецензии"
               reviewTitlePlaceholder="Например: Главный артист месяца по форме и звуку…"

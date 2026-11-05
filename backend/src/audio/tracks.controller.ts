@@ -1,6 +1,19 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Query, HttpStatus, HttpException } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Delete,
+  Body,
+  Param,
+  Query,
+  HttpStatus,
+  HttpException,
+  UseGuards,
+} from '@nestjs/common';
 import { AudioService } from './audio.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { AdminGuard } from '../auth/admin.guard';
 
 export type CustomTrackDto = {
   id?: string;
@@ -23,8 +36,9 @@ export class TracksController {
     private readonly prisma: PrismaService,
   ) {}
 
-  // Parse track or album metadata from SoundCloud or Spotify URL
+  // Parse track or album metadata from SoundCloud or Spotify URL (Администратор)
   @Get('parse')
+  @UseGuards(AdminGuard)
   async parseUrl(@Query('url') url: string) {
     if (!url) {
       throw new HttpException('URL is required', HttpStatus.BAD_REQUEST);
@@ -37,12 +51,14 @@ export class TracksController {
   }
 
   @Get('parse-soundcloud')
+  @UseGuards(AdminGuard)
   async parseSoundcloud(@Query('url') url: string) {
     return this.parseUrl(url);
   }
 
-  // Upload cover image
+  // Upload cover image (Администратор)
   @Post('upload-cover')
+  @UseGuards(AdminGuard)
   uploadCover(@Body() body: { imageBase64: string; filename?: string }) {
     if (!body?.imageBase64) {
       throw new HttpException('imageBase64 is required', HttpStatus.BAD_REQUEST);
@@ -51,14 +67,15 @@ export class TracksController {
     return { url };
   }
 
-  // List all custom uploaded / added tracks
+  // List all custom uploaded / added tracks (Публично для ленты и колеса треков)
   @Get()
   async getTracks() {
     return this.audioService.getAllCustomTracks();
   }
 
-  // Create new track (manually or from URL)
+  // Create new track (manually or from URL) (Администратор)
   @Post()
+  @UseGuards(AdminGuard)
   async addTrack(@Body() body: CustomTrackDto) {
     if (!body.title && !body.soundcloudUrl) {
       throw new HttpException('Title or SoundCloud URL is required', HttpStatus.BAD_REQUEST);
@@ -66,14 +83,16 @@ export class TracksController {
     return this.audioService.addCustomTrack(body);
   }
 
-  // Update track
+  // Update track (Администратор)
   @Put(':id')
+  @UseGuards(AdminGuard)
   async updateTrack(@Param('id') id: string, @Body() body: Partial<CustomTrackDto>) {
     return this.audioService.updateCustomTrack(id, body);
   }
 
-  // Delete track
+  // Delete track (Администратор)
   @Delete(':id')
+  @UseGuards(AdminGuard)
   async deleteTrack(@Param('id') id: string) {
     return this.audioService.deleteCustomTrack(id);
   }

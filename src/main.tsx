@@ -40,7 +40,7 @@ class SceneBoundary extends Component<{ children: ReactNode }, { failed: boolean
 
 function App() {
  const { route, location: routeLocation, openedFromHome, goToHome, goToAlbum, goToTrack, goToMonthArtist, goToArtist, returnToAlbum, goToGallery, goToTracks, goToArtists, goToRegister, goToProfile, goToAdmin, artistAlbumIndex, artistFromTrack, artistFromMonthArtist } = useAlbumNavigation()
- const { user, isAuthenticated } = useAuth()
+ const { user, isAuthenticated, isAdmin } = useAuth()
  const hasActivePlayer = useHasActivePlayer()
  const detailIndex = route.kind === 'album' ? route.index : null
  const trackIndex = route.kind === 'track' ? route.index : null
@@ -474,9 +474,11 @@ function App() {
      <a className={`scene-tab${route.kind === 'artists' ? ' is-active' : ''}`} href="/month-artists" onClick={artistsLink} aria-current={route.kind === 'artists' ? 'page' : undefined}>
       Исполнители
      </a>
-     <a className={`scene-tab${route.kind === 'admin' ? ' is-active' : ''}`} href="/admin" onClick={adminLink} aria-current={route.kind === 'admin' ? 'page' : undefined}>
-      + SoundCloud
-     </a>
+     {isAdmin && (
+      <a className={`scene-tab${route.kind === 'admin' ? ' is-active' : ''}`} href="/admin" onClick={adminLink} aria-current={route.kind === 'admin' ? 'page' : undefined}>
+       Админ панель 
+      </a>
+     )}
      {isAuthenticated && user?.nickname ? (
       <a className={`scene-tab${route.kind === 'profile' ? ' is-active' : ''}`} href="/profile" onClick={profileLink} aria-current={route.kind === 'profile' ? 'page' : undefined}>
        {user.nickname}
@@ -608,7 +610,7 @@ function App() {
     onNavigateToArtist={targetArtistIdx => goToArtist(targetArtistIdx, 0, 'album')}
    />
   )}
-  {route.kind === 'admin' && <AdminTracksPage onBackToHome={returnToHome} />}
+  {route.kind === 'admin' && <AdminTracksPage onBackToHome={returnToHome} onNavigateToRegister={goToRegister} />}
   {route.kind === 'not-found' && <main className="album-not-found"><p>404</p><h1>Страница не найдена</h1><a href="/" onClick={mainHomeLink}>Вернуться на главную</a></main>}
   {isGalleryRoute && <div className="scroll-space" style={{ height: `${(TOTAL_SCROLL_PAGES + 1) * 100}vh` }} aria-hidden="true" />}
   <AudioPlayerBar

@@ -30,9 +30,11 @@ export function getDefaultPreferences(): UserPreferences {
 }
 
 export type UserProfile = {
+  id?: string
   nickname: string
   email: string
-  provider?: 'email' | 'telegram' | 'vk' | 'apple' | 'google'
+  role?: 'user' | 'admin' | string
+  provider?: 'email' | 'local' | 'google'
   registeredAt: string
   bio?: string
   avatarSymbol?: string
@@ -57,8 +59,10 @@ function readStorage(): UserProfile | null {
     const parsed = JSON.parse(raw)
     if (parsed && typeof parsed.nickname === 'string' && typeof parsed.email === 'string') {
       return {
+        id: typeof parsed.id === 'string' ? parsed.id : undefined,
         nickname: parsed.nickname.trim(),
         email: parsed.email.trim(),
+        role: typeof parsed.role === 'string' ? parsed.role : 'user',
         provider: parsed.provider || 'email',
         registeredAt: parsed.registeredAt || new Date().toISOString(),
         bio: typeof parsed.bio === 'string' ? parsed.bio : '',
@@ -107,62 +111,96 @@ function subscribe(listener: () => void) {
   }
 }
 
+const TOKEN_KEY = 'album-awards-token'
+const API_AUTH = '/api/auth'
+
+export function getAuthToken(): string | null {
+  if (typeof window === 'undefined') return null
+  try {
+    return window.localStorage.getItem(TOKEN_KEY)
+  } catch {
+    return null
+  }
+}
+
+export type AuthResult = { ok: true } | { ok: false; error: string }
+
+function saveSession(token: string, user: UserProfile) {
+  window.localStorage.setItem(TOKEN_KEY, token)
+  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(user))
+  publish(user)
+  try {
+    window.dispatchEvent(new CustomEvent('aa:auth_login'))
+  } catch {}
+}
+
+function clearSession() {
+  try {
+    window.localStorage.removeItem(TOKEN_KEY)
+    window.localStorage.removeItem(STORAGE_KEY)
+  } catch {
+    // Ignore
+  }
+  publish(null)
+}
+
+async function authRequest(path: string, body: unknown): Promise<AuthResult> {
+  try {
+    const res = await fetch(`${API_AUTH}/${path}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) {
+      const message = Array.isArray(data.message) ? data.message.join(', ') : data.message
+      return { ok: false, error: message || 'Ошибка сервера' }
+    }
+    saveSession(data.token, data.user)
+    return { ok: true }
+  } catch {
+    return { ok: false, error: 'Сервер недоступен. Проверь, что бэкенд запущен' }
+  }
+}
+
+// Validate stored token on startup: pull a fresh profile or drop an expired session.
+let sessionChecked = false
+async function verifySession() {
+  if (sessionChecked) return
+  sessionChecked = true
+  const token = getAuthToken()
+  if (!token) return
+  try {
+    const res = await fetch(`${API_AUTH}/me`, { headers: { Authorization: `Bearer ${token}` } })
+    if (res.status === 401) return clearSession()
+    if (res.ok) {
+      const user = await res.json()
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(user))
+      publish(user)
+    }
+  } catch {
+    // Backend offline: keep the cached profile
+  }
+}
+
 export function useAuth() {
   const state = useSyncExternalStore(subscribe, getSnapshot, () => serverSnapshot)
+  void verifySession()
 
-  function register(nickname: string, email: string, provider: UserProfile['provider'] = 'email') {
-    const cleanNick = nickname.trim()
-    const cleanEmail = email.trim()
-    if (!cleanNick || !cleanEmail) return false
-    const profile: UserProfile = {
-      nickname: cleanNick,
-      email: cleanEmail,
-      provider,
-      registeredAt: new Date().toISOString(),
-      preferences: getDefaultPreferences(),
-    }
-    try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(profile))
-      publish(profile)
-      return true
-    } catch {
-      return false
-    }
+  function register(nickname: string, email: string, password: string): Promise<AuthResult> {
+    return authRequest('register', { nickname, email, password })
   }
 
-  function login(emailOrNick: string) {
-    const clean = emailOrNick.trim()
-    if (!clean) return false
-    // If existing in storage with matching or just log in with this handle
-    const existing = readStorage()
-    if (existing) {
-      publish(existing)
-      return true
-    }
-    // If no existing account yet, log in with provided name
-    const profile: UserProfile = {
-      nickname: clean.includes('@') ? clean.split('@')[0] : clean,
-      email: clean.includes('@') ? clean : `${clean}@awards.music`,
-      provider: 'email',
-      registeredAt: new Date().toISOString(),
-      preferences: getDefaultPreferences(),
-    }
-    try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(profile))
-      publish(profile)
-      return true
-    } catch {
-      return false
-    }
+  function login(identifier: string, password: string): Promise<AuthResult> {
+    return authRequest('login', { identifier, password })
+  }
+
+  function loginWithGoogle(credential: string): Promise<AuthResult> {
+    return authRequest('google', { credential })
   }
 
   function logout() {
-    try {
-      window.localStorage.removeItem(STORAGE_KEY)
-      publish(null)
-    } catch {
-      // Ignore
-    }
+    clearSession()
   }
 
   function updateProfile(updates: Partial<UserProfile>) {
@@ -181,17 +219,36 @@ export function useAuth() {
     try {
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify(updated))
       publish(updated)
-      return true
     } catch {
       return false
     }
+
+    // Sync to the server when signed in with a JWT (best effort; local cache stays the source for the UI).
+    const token = getAuthToken()
+    if (token) {
+      void fetch(`${API_AUTH}/me`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          nickname: updated.nickname,
+          bio: updated.bio,
+          avatarUrl: updated.avatarUrl,
+          avatarSymbol: updated.avatarSymbol,
+          favoriteGenre: updated.favoriteGenre,
+          preferences: updated.preferences,
+        }),
+      }).catch(() => {})
+    }
+    return true
   }
 
   return {
     user: state.user,
     isAuthenticated: state.user !== null,
+    isAdmin: state.user?.role === 'admin',
     register,
     login,
+    loginWithGoogle,
     logout,
     updateProfile,
   }

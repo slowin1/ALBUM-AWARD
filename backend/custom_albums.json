@@ -1,5 +1,144 @@
 [
   {
+    "id": "alb-1793872063097",
+    "title": "Миллионер из трущоб",
+    "artist": "tuborosho",
+    "year": 2026,
+    "cover": "https://i1.sndcdn.com/artworks-bQSiQl4npGtsrsi1-b6z6Lg-t500x500.jpg",
+    "soundcloudUrl": "https://soundcloud.com/tuborosho-438767231/sets/tuborosho-millioner-iz",
+    "soundcloudPlaylistId": "2223270485",
+    "tracks": [
+      {
+        "id": "sc-trk-2303904446",
+        "title": "Интро",
+        "artist": "tuborosho",
+        "duration": "2:00",
+        "soundcloudUrl": "https://soundcloud.com/tuborosho-438767231/intro",
+        "soundcloudTrackId": "2303904446",
+        "cover": "https://i1.sndcdn.com/artworks-bQSiQl4npGtsrsi1-b6z6Lg-t500x500.png"
+      },
+      {
+        "id": "sc-trk-2303905043",
+        "title": "Миллионер из трущоб",
+        "artist": "tuborosho",
+        "duration": "1:24",
+        "soundcloudUrl": "https://soundcloud.com/tuborosho-438767231/millioner-iz-trushhob",
+        "soundcloudTrackId": "2303905043",
+        "cover": "https://i1.sndcdn.com/artworks-bQSiQl4npGtsrsi1-b6z6Lg-t500x500.png"
+      },
+      {
+        "id": "sc-trk-2303905469",
+        "title": "Щелкунчик",
+        "artist": "tuborosho",
+        "duration": "1:47",
+        "soundcloudUrl": "https://soundcloud.com/tuborosho-438767231/shhelkunchik",
+        "soundcloudTrackId": "2303905469",
+        "cover": "https://i1.sndcdn.com/artworks-bQSiQl4npGtsrsi1-b6z6Lg-t500x500.png"
+      },
+      {
+        "id": "sc-trk-2303905913",
+        "title": "Большие Шаги",
+        "artist": "tuborosho",
+        "duration": "1:44",
+        "soundcloudUrl": "https://soundcloud.com/tuborosho-438767231/bolshie-shagi",
+        "soundcloudTrackId": "2303905913",
+        "cover": "https://i1.sndcdn.com/artworks-bQSiQl4npGtsrsi1-b6z6Lg-t500x500.png"
+      },
+      {
+        "id": "sc-trk-2303906603",
+        "title": "Hotelroom",
+        "artist": "tuborosho",
+        "duration": "1:47",
+        "soundcloudUrl": "https://soundcloud.com/tuborosho-438767231/hotelroom",
+        "soundcloudTrackId": "2303906603",
+        "cover": "https://i1.sndcdn.com/artworks-bQSiQl4npGtsrsi1-b6z6Lg-t500x500.png"
+      },
+      {
+        "id": "sc-trk-2303907140",
+        "title": "BMF",
+        "artist": "tuborosho",
+        "duration": "1:35",
+        "soundcloudUrl": "https://soundcloud.com/tuborosho-438767231/bmf",
+        "soundcloudTrackId": "2303907140",
+        "cover": "https://i1.sndcdn.com/artworks-bQSiQl4npGtsrsi1-b6z6Lg-t500x500.png"
+      },
+      {
+        "id": "sc-trk-2303907647",
+        "title": "JAGUAR20",
+        "artist": "tuborosho",
+        "duration": "1:32",
+        "soundcloudUrl": "https://soundcloud.com/tuborosho-438767231/jaguar20",
+        "soundcloudTrackId": "2303907647",
+        "cover": "https://i1.sndcdn.com/artworks-bQSiQl4npGtsrsi1-b6z6Lg-t500x500.png"
+      },
+      {
+        "id": "sc-trk-2303908295",
+        "title": "Звезды",
+        "artist": "tuborosho",
+        "duration": "2:03",
+        "soundcloudUrl": "https://soundcloud.com/tuborosho-438767231/zvezdy",
+        "soundcloudTrackId": "2303908295",
+        "cover": "https://i1.sndcdn.com/artworks-bQSiQl4npGtsrsi1-b6z6Lg-t500x500.png"
+      },
+      {
+        "id": "sc-trk-2303909015",
+        "title": "People",
+        "artist": "tuborosho",
+        "duration": "1:31",
+        "soundcloudUrl": "https://soundcloud.com/tuborosho-438767231/people",
+        "soundcloudTrackId": "2303909015",
+        "cover": "https://i1.sndcdn.com/artworks-bQSiQl4npGtsrsi1-b6z6Lg-t500x500.png"
+      },
+      {
+        "id": "sc-trk-2303909543",
+        "title": "Выбор",
+        "artist": "tuborosho",
+        "duration": "1:46",
+        "soundcloudUrl": "https://soundcloud.com/tuborosho-438767231/vybor",
+        "soundcloudTrackId": "2303909543",
+        "cover": "https://i1.sndcdn.com/artworks-bQSiQl4npGtsrsi1-b6z6Lg-t500x500.png"
+      },
+      {
+        "id": "sc-trk-2303910122",
+        "title": "School",
+        "artist": "tuborosho",
+        "duration": "1:28",
+        "soundcloudUrl": "https://soundcloud.com/tuborosho-438767231/school",
+        "soundcloudTrackId": "2303910122",
+        "cover": "https://i1.sndcdn.com/artworks-bQSiQl4npGtsrsi1-b6z6Lg-t500x500.png"
+      },
+      {
+        "id": "sc-trk-2303910710",
+        "title": "Ресток",
+        "artist": "tuborosho, madk1d",
+        "duration": "1:43",
+        "soundcloudUrl": "https://soundcloud.com/tuborosho-438767231/restok",
+        "soundcloudTrackId": "2303910710",
+        "cover": "https://i1.sndcdn.com/artworks-bQSiQl4npGtsrsi1-b6z6Lg-t500x500.png"
+      },
+      {
+        "id": "sc-trk-2303911130",
+        "title": "VOSK",
+        "artist": "tuborosho",
+        "duration": "1:54",
+        "soundcloudUrl": "https://soundcloud.com/tuborosho-438767231/vosk",
+        "soundcloudTrackId": "2303911130",
+        "cover": "https://i1.sndcdn.com/artworks-bQSiQl4npGtsrsi1-b6z6Lg-t500x500.png"
+      },
+      {
+        "id": "sc-trk-2303911583",
+        "title": "Аутро",
+        "artist": "tuborosho",
+        "duration": "1:37",
+        "soundcloudUrl": "https://soundcloud.com/tuborosho-438767231/autro",
+        "soundcloudTrackId": "2303911583",
+        "cover": "https://i1.sndcdn.com/artworks-bQSiQl4npGtsrsi1-b6z6Lg-t500x500.png"
+      }
+    ],
+    "createdAt": "2026-11-05T09:47:43.097Z",
+    "artistIds": []
+  },
+  {
     "id": "alb-1793737704785",
     "title": "NO OFFENCE",
     "artist": "163ONMYNECK",

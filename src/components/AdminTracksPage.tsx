@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo, type FormEvent, type ChangeEvent } from 'react'
 import { FluidBackground } from './FluidBackground'
 import { playOrToggleTrack, useReleasePlayback } from '../hooks/useAudioPlayer'
+import { getAuthToken, useAuth } from '../hooks/useAuth'
 import {
   artists,
   type ArtistDefinition,
@@ -71,6 +72,15 @@ export type CustomSoundCloudAlbum = {
 
 export type AdminTracksPageProps = {
   onBackToHome: () => void
+  onNavigateToRegister?: () => void
+}
+
+function authHeaders(extra: Record<string, string> = {}) {
+  const token = getAuthToken()
+  return {
+    ...extra,
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  }
 }
 
 type PreviewData =
@@ -746,7 +756,8 @@ function MultiArtistSelector({
   )
 }
 
-export function AdminTracksPage({ onBackToHome }: AdminTracksPageProps) {
+export function AdminTracksPage({ onBackToHome, onNavigateToRegister }: AdminTracksPageProps) {
+  const { user, isAuthenticated, isAdmin } = useAuth()
   const [creationMode, setCreationMode] = useState<'link' | 'track' | 'album' | 'scene'>('link')
   const [sceneMode, setSceneMode] = useState<'albums' | 'tracks' | 'artists'>('albums')
   const [sceneAlbumsState, setSceneAlbumsState] = useState<AlbumDefinition[]>(() => [...sceneDefaultAlbums])
@@ -952,7 +963,7 @@ export function AdminTracksPage({ onBackToHome }: AdminTracksPageProps) {
 
       const res = await fetch('/api/tracks/upload-cover', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ imageBase64: base64, filename: file.name }),
       })
       if (res.ok) {
@@ -1077,7 +1088,9 @@ export function AdminTracksPage({ onBackToHome }: AdminTracksPageProps) {
 
     setStatusMessage(null)
     try {
-      const res = await fetch(`/api/tracks/parse?url=${encodeURIComponent(url)}`)
+      const res = await fetch(`/api/tracks/parse?url=${encodeURIComponent(url)}`, {
+        headers: authHeaders(),
+      })
       if (res.ok) {
         const data = await res.json()
         if (mode === 'albums') {
@@ -1138,7 +1151,9 @@ export function AdminTracksPage({ onBackToHome }: AdminTracksPageProps) {
       // If tracks are not yet parsed but soundcloudUrl is provided, parse now
       if (tracksList.length === 0 && slot.soundcloudUrl?.includes('soundcloud.com')) {
         try {
-          const res = await fetch(`/api/tracks/parse?url=${encodeURIComponent(slot.soundcloudUrl.trim())}`)
+          const res = await fetch(`/api/tracks/parse?url=${encodeURIComponent(slot.soundcloudUrl.trim())}`, {
+            headers: authHeaders(),
+          })
           if (res.ok) {
             const data = await res.json()
             if (data.type === 'album' && Array.isArray(data.tracks) && data.tracks.length > 0) {
@@ -1202,7 +1217,9 @@ export function AdminTracksPage({ onBackToHome }: AdminTracksPageProps) {
     let tracksList = albumSlot.tracks || []
     if (tracksList.length === 0 && albumSlot.soundcloudUrl) {
       try {
-        const res = await fetch(`/api/tracks/parse?url=${encodeURIComponent(albumSlot.soundcloudUrl.trim())}`)
+        const res = await fetch(`/api/tracks/parse?url=${encodeURIComponent(albumSlot.soundcloudUrl.trim())}`, {
+          headers: authHeaders(),
+        })
         if (res.ok) {
           const data = await res.json()
           if (Array.isArray(data.tracks)) {
@@ -1396,7 +1413,9 @@ export function AdminTracksPage({ onBackToHome }: AdminTracksPageProps) {
     setPreview(null)
 
     try {
-      const res = await fetch(`/api/tracks/parse?url=${encodeURIComponent(cleanUrl)}`)
+      const res = await fetch(`/api/tracks/parse?url=${encodeURIComponent(cleanUrl)}`, {
+        headers: authHeaders(),
+      })
       if (res.ok) {
         const data = await res.json()
         const initialArtistName = (data.artist || '').trim()
@@ -1430,7 +1449,7 @@ export function AdminTracksPage({ onBackToHome }: AdminTracksPageProps) {
       if (preview.type === 'album') {
         const res = await fetch('/api/albums', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: authHeaders({ 'Content-Type': 'application/json' }),
           body: JSON.stringify(preview),
         })
         if (res.ok) {
@@ -1456,7 +1475,7 @@ export function AdminTracksPage({ onBackToHome }: AdminTracksPageProps) {
       } else {
         const res = await fetch('/api/tracks', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: authHeaders({ 'Content-Type': 'application/json' }),
           body: JSON.stringify(preview),
         })
         if (res.ok) {
@@ -1513,7 +1532,7 @@ export function AdminTracksPage({ onBackToHome }: AdminTracksPageProps) {
     try {
       const res = await fetch('/api/tracks', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify(payload),
       })
       if (res.ok) {
@@ -1580,7 +1599,7 @@ export function AdminTracksPage({ onBackToHome }: AdminTracksPageProps) {
     try {
       const res = await fetch('/api/albums', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify(payload),
       })
       if (res.ok) {
@@ -1605,7 +1624,10 @@ export function AdminTracksPage({ onBackToHome }: AdminTracksPageProps) {
   const handleDeleteTrack = async (id: string, title: string) => {
     if (!confirm(`Удалить трек "${title}" из базы данных?`)) return
     try {
-      const res = await fetch(`/api/tracks/${id}`, { method: 'DELETE' })
+      const res = await fetch(`/api/tracks/${id}`, {
+        method: 'DELETE',
+        headers: authHeaders(),
+      })
       const data = await res.json().catch(() => ({}))
       if (res.ok && data.success !== false) {
         unregisterCustomSoundcloudTrack(id)
@@ -1657,7 +1679,10 @@ export function AdminTracksPage({ onBackToHome }: AdminTracksPageProps) {
   const handleDeleteAlbum = async (id: string, title: string) => {
     if (!confirm(`Удалить альбом "${title}" из базы данных?`)) return
     try {
-      const res = await fetch(`/api/albums/${id}`, { method: 'DELETE' })
+      const res = await fetch(`/api/albums/${id}`, {
+        method: 'DELETE',
+        headers: authHeaders(),
+      })
       const data = await res.json().catch(() => ({}))
       if (res.ok && data.success !== false) {
         unregisterCustomSoundcloudAlbum(id)
@@ -1771,7 +1796,7 @@ export function AdminTracksPage({ onBackToHome }: AdminTracksPageProps) {
 
       const res = await fetch(`/api/tracks/${id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify(payload),
       })
 
@@ -1850,7 +1875,7 @@ export function AdminTracksPage({ onBackToHome }: AdminTracksPageProps) {
 
       const res = await fetch(`/api/albums/${id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify(payload),
       })
 
@@ -1962,6 +1987,42 @@ export function AdminTracksPage({ onBackToHome }: AdminTracksPageProps) {
       updateSceneTrackSlot(slotIndex, defTrack)
       setStatusMessage({ type: 'ok', text: `Слот ${slotIndex + 1} (Трек) очищен!` })
     }
+  }
+
+  if (!isAdmin) {
+    return (
+      <main className="admin-page" role="main">
+        <FluidBackground />
+        <div className="admin-container" style={{ textAlign: 'center', padding: '100px 20px', maxWidth: 620, margin: '0 auto' }}>
+          <div className="admin-badge" style={{ margin: '0 auto 18px', background: 'rgba(239, 68, 68, 0.15)', borderColor: 'rgba(239, 68, 68, 0.35)', color: '#f87171' }}>
+            🔒 Доступ ограничен
+          </div>
+          <h1 className="admin-title" style={{ fontSize: '2.2rem', marginBottom: 14 }}>
+            Панель управления
+          </h1>
+          <p className="admin-subtitle" style={{ fontSize: '1.05rem', color: 'rgba(255, 255, 255, 0.7)', lineHeight: 1.6, marginBottom: 32 }}>
+            {isAuthenticated
+              ? `Вы авторизованы как «${user?.nickname || user?.email}», но ваш аккаунт имеет роль «${user?.role || 'user'}». Доступ к панели администратора разрешён только пользователям с ролью «admin».`
+              : 'Доступ к добавлению, редактированию и удалению релизов открыт только для администраторов премии. Войдите в аккаунт с правами администратора.'}
+          </p>
+          <div style={{ display: 'flex', gap: 14, justifyContent: 'center', flexWrap: 'wrap' }}>
+            <button type="button" onClick={onBackToHome} className="admin-back-btn">
+              ← На главную
+            </button>
+            {!isAuthenticated && onNavigateToRegister && (
+              <button
+                type="button"
+                onClick={onNavigateToRegister}
+                className="admin-submit-btn"
+                style={{ width: 'auto', padding: '10px 24px', cursor: 'pointer' }}
+              >
+                Войти в аккаунт
+              </button>
+            )}
+          </div>
+        </div>
+      </main>
+    )
   }
 
   return (

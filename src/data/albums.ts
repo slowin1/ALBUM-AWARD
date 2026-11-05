@@ -1,3 +1,5 @@
+import { getAuthToken } from '../hooks/useAuth'
+
 export type AlbumTrackItem = {
   id: string
   title: string
@@ -55,9 +57,13 @@ export function updateSceneAlbumSlot(slotIndex: number, updated: Partial<AlbumDe
   try {
     localStorage.setItem('aa_scene_albums', JSON.stringify(albums))
   } catch {}
+  const token = getAuthToken()
   fetch('/api/scene/slot', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
     body: JSON.stringify({ type: 'album', slotIndex, data: updated }),
   }).catch(() => {})
   window.dispatchEvent(new CustomEvent('aa:scene_updated'))
@@ -71,9 +77,13 @@ export function setSceneAlbums(newAlbums: AlbumDefinition[]) {
   try {
     localStorage.setItem('aa_scene_albums', JSON.stringify(albums))
   } catch {}
+  const token = getAuthToken()
   fetch('/api/scene/albums', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
     body: JSON.stringify({ albums: albums.slice(0, 12) }),
   }).catch(() => {})
   window.dispatchEvent(new CustomEvent('aa:scene_updated'))
