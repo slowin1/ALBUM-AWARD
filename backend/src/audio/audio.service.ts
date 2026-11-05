@@ -60,6 +60,9 @@ export class AudioService {
   private readonly logger = new Logger(AudioService.name);
   private readonly tracksFilePath = path.join(__dirname, '..', '..', 'custom_tracks.json');
   private readonly albumsFilePath = path.join(__dirname, '..', '..', 'custom_albums.json');
+  private readonly sceneAlbumsFilePath = path.join(__dirname, '..', '..', 'scene_albums.json');
+  private readonly sceneTracksFilePath = path.join(__dirname, '..', '..', 'scene_tracks.json');
+  private readonly sceneArtistsFilePath = path.join(__dirname, '..', '..', 'scene_artists.json');
 
   private customTracks: CustomTrack[] = [];
   private customAlbums: CustomAlbum[] = [];
@@ -273,7 +276,8 @@ export class AudioService {
   }
 
   saveUploadedCover(base64Data: string, originalName?: string): string {
-    const customDir = path.resolve(process.cwd(), 'public/covers/custom');
+    const rootDir = path.basename(process.cwd()) === 'backend' ? path.resolve(process.cwd(), '..') : process.cwd();
+    const customDir = path.resolve(rootDir, 'public/covers/custom');
     if (!fs.existsSync(customDir)) {
       fs.mkdirSync(customDir, { recursive: true });
     }
@@ -779,7 +783,7 @@ export class AudioService {
   }
 
   getSceneAlbums(): any[] {
-    const filePath = path.resolve(process.cwd(), 'backend/scene_albums.json');
+    const filePath = this.sceneAlbumsFilePath;
     try {
       if (fs.existsSync(filePath)) {
         return JSON.parse(fs.readFileSync(filePath, 'utf8'));
@@ -799,7 +803,7 @@ export class AudioService {
   }
 
   saveSceneAlbums(albums: any[]): { success: boolean; albums: any[] } {
-    const filePath = path.resolve(process.cwd(), 'backend/scene_albums.json');
+    const filePath = this.sceneAlbumsFilePath;
     try {
       fs.writeFileSync(filePath, JSON.stringify(albums.slice(0, 12), null, 2), 'utf8');
       return { success: true, albums: albums.slice(0, 12) };
@@ -820,7 +824,7 @@ export class AudioService {
   }
 
   getSceneTracks(): any[] {
-    const filePath = path.resolve(process.cwd(), 'backend/scene_tracks.json');
+    const filePath = this.sceneTracksFilePath;
     try {
       if (fs.existsSync(filePath)) {
         return JSON.parse(fs.readFileSync(filePath, 'utf8'));
@@ -843,7 +847,7 @@ export class AudioService {
   }
 
   saveSceneTracks(tracks: any[]): { success: boolean; tracks: any[] } {
-    const filePath = path.resolve(process.cwd(), 'backend/scene_tracks.json');
+    const filePath = this.sceneTracksFilePath;
     try {
       fs.writeFileSync(filePath, JSON.stringify(tracks.slice(0, 12), null, 2), 'utf8');
       return { success: true, tracks: tracks.slice(0, 12) };
@@ -864,7 +868,7 @@ export class AudioService {
   }
 
   getSceneArtists(): any[] {
-    const filePath = path.resolve(process.cwd(), 'backend/scene_artists.json');
+    const filePath = this.sceneArtistsFilePath;
     try {
       if (fs.existsSync(filePath)) {
         return JSON.parse(fs.readFileSync(filePath, 'utf8'));
@@ -885,7 +889,7 @@ export class AudioService {
   }
 
   saveSceneArtists(artists: any[]): { success: boolean; artists: any[] } {
-    const filePath = path.resolve(process.cwd(), 'backend/scene_artists.json');
+    const filePath = this.sceneArtistsFilePath;
     try {
       fs.writeFileSync(filePath, JSON.stringify(artists.slice(0, 12), null, 2), 'utf8');
       return { success: true, artists: artists.slice(0, 12) };

@@ -647,94 +647,130 @@
     "soundcloudUrl": "https://soundcloud.com/fendiiiii/sets/s3x-music"
   },
   {
-    "id": "slot-album-6",
+    "id": "alb-1793736861870",
     "title": "sexyswag",
     "artist": "madk1d",
     "year": 2026,
     "cover": "https://i1.sndcdn.com/artworks-38tKqqgknWKtlayt-aFjycQ-t500x500.jpg",
-    "sourceUrl": "",
+    "sourceUrl": "https://soundcloud.com/madk1d9/sets/sexyswag",
     "soundcloudUrl": "https://soundcloud.com/madk1d9/sets/sexyswag",
     "tracks": [
       {
         "id": "sc-trk-2059348776",
+        "albumId": "alb-1793736861870",
         "title": "так по***",
+        "albumTitle": "sexyswag",
         "artist": "madk1d",
+        "year": 2026,
         "duration": "1:46",
+        "cover": "https://i1.sndcdn.com/artworks-kXOQozMfAIWh3Ee4-HujXpw-t500x500.png",
+        "sourceUrl": "https://soundcloud.com/madk1d9/tak-po",
         "soundcloudUrl": "https://soundcloud.com/madk1d9/tak-po",
-        "soundcloudTrackId": "2059348776",
-        "cover": "https://i1.sndcdn.com/artworks-kXOQozMfAIWh3Ee4-HujXpw-t500x500.png"
+        "soundcloudTrackId": "2059348776"
       },
       {
         "id": "sc-trk-2016896083",
+        "albumId": "alb-1793736861870",
         "title": "цена",
+        "albumTitle": "sexyswag",
         "artist": "madk1d",
+        "year": 2026,
         "duration": "2:17",
+        "cover": "https://i1.sndcdn.com/artworks-2zPmpfsLyw2Mpxcp-bPRtyg-t500x500.png",
+        "sourceUrl": "https://soundcloud.com/madk1d9/tsena-feat-paranoyya",
         "soundcloudUrl": "https://soundcloud.com/madk1d9/tsena-feat-paranoyya",
-        "soundcloudTrackId": "2016896083",
-        "cover": "https://i1.sndcdn.com/artworks-2zPmpfsLyw2Mpxcp-bPRtyg-t500x500.png"
+        "soundcloudTrackId": "2016896083"
       },
       {
         "id": "sc-trk-2053862256",
+        "albumId": "alb-1793736861870",
         "title": "ты че обиделась",
+        "albumTitle": "sexyswag",
         "artist": "madk1d",
+        "year": 2026,
         "duration": "1:29",
+        "cover": "https://i1.sndcdn.com/artworks-Z3C5uNgYZ2l2Z93P-74HR7w-t500x500.png",
+        "sourceUrl": "https://soundcloud.com/madk1d9/ty-che-obidelas-feat-tyomnyy-prints",
         "soundcloudUrl": "https://soundcloud.com/madk1d9/ty-che-obidelas-feat-tyomnyy-prints",
-        "soundcloudTrackId": "2053862256",
-        "cover": "https://i1.sndcdn.com/artworks-Z3C5uNgYZ2l2Z93P-74HR7w-t500x500.png"
+        "soundcloudTrackId": "2053862256"
       },
       {
         "id": "sc-trk-2059349468",
+        "albumId": "alb-1793736861870",
         "title": "супермаркет",
+        "albumTitle": "sexyswag",
         "artist": "madk1d",
+        "year": 2026,
         "duration": "1:58",
+        "cover": "https://i1.sndcdn.com/artworks-kXOQozMfAIWh3Ee4-HujXpw-t500x500.png",
+        "sourceUrl": "https://soundcloud.com/madk1d9/f15d440a-0a38-47f9-be7f-bb78c746ef88",
         "soundcloudUrl": "https://soundcloud.com/madk1d9/f15d440a-0a38-47f9-be7f-bb78c746ef88",
-        "soundcloudTrackId": "2059349468",
-        "cover": "https://i1.sndcdn.com/artworks-kXOQozMfAIWh3Ee4-HujXpw-t500x500.png"
+        "soundcloudTrackId": "2059349468"
       },
       {
         "id": "sc-trk-2059350016",
+        "albumId": "alb-1793736861870",
         "title": "засосы",
+        "albumTitle": "sexyswag",
         "artist": "madk1d",
+        "year": 2026,
         "duration": "1:38",
+        "cover": "https://i1.sndcdn.com/artworks-kXOQozMfAIWh3Ee4-HujXpw-t500x500.png",
+        "sourceUrl": "https://soundcloud.com/madk1d9/zasosy",
         "soundcloudUrl": "https://soundcloud.com/madk1d9/zasosy",
-        "soundcloudTrackId": "2059350016",
-        "cover": "https://i1.sndcdn.com/artworks-kXOQozMfAIWh3Ee4-HujXpw-t500x500.png"
+        "soundcloudTrackId": "2059350016"
       },
       {
         "id": "sc-trk-2059350776",
+        "albumId": "alb-1793736861870",
         "title": "sexyswag2010",
+        "albumTitle": "sexyswag",
         "artist": "madk1d",
+        "year": 2026,
         "duration": "1:28",
+        "cover": "https://i1.sndcdn.com/artworks-kXOQozMfAIWh3Ee4-HujXpw-t500x500.png",
+        "sourceUrl": "https://soundcloud.com/madk1d9/sexyswag2010",
         "soundcloudUrl": "https://soundcloud.com/madk1d9/sexyswag2010",
-        "soundcloudTrackId": "2059350776",
-        "cover": "https://i1.sndcdn.com/artworks-kXOQozMfAIWh3Ee4-HujXpw-t500x500.png"
+        "soundcloudTrackId": "2059350776"
       },
       {
         "id": "sc-trk-2059351524",
+        "albumId": "alb-1793736861870",
         "title": "сдвг",
+        "albumTitle": "sexyswag",
         "artist": "madk1d",
+        "year": 2026,
         "duration": "2:11",
+        "cover": "https://i1.sndcdn.com/artworks-kXOQozMfAIWh3Ee4-HujXpw-t500x500.png",
+        "sourceUrl": "https://soundcloud.com/madk1d9/sdvg",
         "soundcloudUrl": "https://soundcloud.com/madk1d9/sdvg",
-        "soundcloudTrackId": "2059351524",
-        "cover": "https://i1.sndcdn.com/artworks-kXOQozMfAIWh3Ee4-HujXpw-t500x500.png"
+        "soundcloudTrackId": "2059351524"
       },
       {
         "id": "sc-trk-2059352428",
+        "albumId": "alb-1793736861870",
         "title": "последним летом",
+        "albumTitle": "sexyswag",
         "artist": "madk1d",
+        "year": 2026,
         "duration": "2:01",
+        "cover": "https://i1.sndcdn.com/artworks-zO1mNdcJQnwXVUuS-zRCznQ-t500x500.png",
+        "sourceUrl": "https://soundcloud.com/madk1d9/poslednim-letom-feat-grillyazh",
         "soundcloudUrl": "https://soundcloud.com/madk1d9/poslednim-letom-feat-grillyazh",
-        "soundcloudTrackId": "2059352428",
-        "cover": "https://i1.sndcdn.com/artworks-zO1mNdcJQnwXVUuS-zRCznQ-t500x500.png"
+        "soundcloudTrackId": "2059352428"
       },
       {
         "id": "sc-trk-1997779907",
+        "albumId": "alb-1793736861870",
         "title": "танцор",
+        "albumTitle": "sexyswag",
         "artist": "madk1d",
+        "year": 2026,
         "duration": "1:27",
+        "cover": "https://i1.sndcdn.com/artworks-P8iSzZpPjI6ipzAa-4mWblg-t500x500.png",
+        "sourceUrl": "https://soundcloud.com/madk1d9/tantsor",
         "soundcloudUrl": "https://soundcloud.com/madk1d9/tantsor",
-        "soundcloudTrackId": "1997779907",
-        "cover": "https://i1.sndcdn.com/artworks-P8iSzZpPjI6ipzAa-4mWblg-t500x500.png"
+        "soundcloudTrackId": "1997779907"
       }
     ]
   },
