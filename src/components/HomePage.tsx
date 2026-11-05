@@ -4,15 +4,16 @@ import {
   allTracks,
   artists,
   getReleaseArtists,
-  registerCustomSoundcloudTrack,
-  registerCustomSoundcloudAlbum,
+  getCatalogSnapshot,
+  loadCatalog,
+  type ApiAlbum,
+  type ApiTrack,
   type ArtistDefinition,
 } from '../data/artists'
-import { calculateAlbumScore, useAllUserRatings, type AlbumScores } from '../hooks/useAlbumRatings'
+import { useAllUserRatings, type AlbumScores } from '../hooks/useAlbumRatings'
 import { playOrToggleAlbum, playOrToggleTrack, useReleasePlayback } from '../hooks/useAudioPlayer'
-import { useAuth } from '../hooks/useAuth'
+import { getAuthToken, useAuth } from '../hooks/useAuth'
 import { albumPath, artistPath, trackPath } from '../navigation/albumNavigation'
-import type { CustomSoundCloudTrack, CustomSoundCloudAlbum } from './AdminTracksPage'
 import './HomePage.css'
 
 type HomePageProps = {
@@ -49,6 +50,9 @@ type FreshmanCard = {
 
 type FeedReview = {
   uid: string
+  reviewId: string
+  authorId: string
+  likedByMe: boolean
   isUserReview?: boolean
   verified?: boolean
   baseLikes: number
@@ -71,21 +75,37 @@ const PRIORITY_RELEASES: Array<{ kind: 'album' | 'track'; id: string; baseScore:
 
 const FRESHMEN_SLUGS: Array<{ id: string; tag: string }> = []
 
-type CuratedSeedReview = {
-  uid: string
-  authorName: string
-  authorAvatar: string
-  verified?: boolean
-  baseLikes: number
-  timeLabel: string
-  kind: 'album' | 'track'
+type ApiReview = {
+  id: string
+  userId: string
   targetId: string
-  scores: AlbumScores
-  reviewTitle: string
-  reviewText: string
+  targetType: string
+  albumId: string | null
+  trackId: string | null
+  title: string | null
+  text: string
+  rhymesScore: number
+  structureScore: number
+  styleScore: number
+  individualityScore: number
+  atmosphereScore: number
+  totalScore: number
+  likesCount: number
+  createdAt: string
+  user?: { id: string; nickname: string; avatarUrl?: string | null; avatarSymbol?: string | null }
 }
 
-const CURATED_REVIEWS: CuratedSeedReview[] = []
+function relativeTime(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime()
+  const min = Math.floor(diff / 60000)
+  if (min < 1) return 'только что'
+  if (min < 60) return `${min} мин назад`
+  const hours = Math.floor(min / 60)
+  if (hours < 24) return `${hours} ч назад`
+  const days = Math.floor(hours / 24)
+  if (days < 30) return `${days} дн назад`
+  return new Date(iso).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })
+}
 
 function normalizeQuery(text: string): string {
   return text.trim().toLowerCase().replace(/ё/g, 'е')
@@ -202,86 +222,33 @@ export function HomePage({
   const [releaseFilter, setReleaseFilter] = useState<ReleaseFilter>('all')
   const [reviewFilter, setReviewFilter] = useState<ReleaseFilter>('all')
   const [brokenImages, setBrokenImages] = useState<Record<string, boolean>>({})
-  const [likedReviews, setLikedReviews] = useState<Record<string, boolean>>({})
+  const [apiReviews, setApiReviews] = useState<ApiReview[]>([])
+  const [myLikedIds, setMyLikedIds] = useState<Set<string>>(new Set())
+  const [likeOverrides, setLikeOverrides] = useState<Record<string, { liked: boolean; count: number }>>({})
   const [openScoreReviews, setOpenScoreReviews] = useState<Record<string, boolean>>({})
   const [expandedReviews, setExpandedReviews] = useState<Record<string, boolean>>({})
-  const [customTracks, setCustomTracks] = useState<CustomSoundCloudTrack[]>(() => {
-    try {
-      const raw = localStorage.getItem('aa_custom_tracks_cache')
-      if (raw) {
-        const parsed: CustomSoundCloudTrack[] = JSON.parse(raw)
-        if (Array.isArray(parsed)) {
-          parsed.forEach(t => registerCustomSoundcloudTrack(t))
-          return parsed
-        }
-      }
-    } catch {}
-    return []
-  })
-  const [customAlbums, setCustomAlbums] = useState<CustomSoundCloudAlbum[]>(() => {
-    try {
-      const raw = localStorage.getItem('aa_custom_albums_cache')
-      if (raw) {
-        const parsed: CustomSoundCloudAlbum[] = JSON.parse(raw)
-        if (Array.isArray(parsed)) {
-          parsed.forEach(a => registerCustomSoundcloudAlbum(a))
-          return parsed
-        }
-      }
-    } catch {}
-    return []
-  })
+  const [customTracks, setCustomTracks] = useState<ApiTrack[]>(() => getCatalogSnapshot().singles)
+  const [customAlbums, setCustomAlbums] = useState<ApiAlbum[]>(() => getCatalogSnapshot().albums)
   const releasesRowRef = useRef<HTMLDivElement>(null)
   const dragStateRef = useRef({ active: false, startX: 0, scrollLeft: 0, dragged: false })
   const glareFrameRef = useRef(0)
   const glarePendingRef = useRef<{ el: HTMLElement; clientX: number; clientY: number } | null>(null)
 
+  // Каталог целиком приходит с сервера; здесь только подписка на его обновления.
   useEffect(() => {
-    let active = true
-    const load = () => {
-      Promise.all([
-        fetch('/api/tracks').then(res => (res.ok ? res.json() : [])),
-        fetch('/api/albums').then(res => (res.ok ? res.json() : [])),
-        fetch('/api/scene/albums').then(res => (res.ok ? res.json() : [])),
-      ])
-        .then(([tData, aData, sData]: [CustomSoundCloudTrack[], CustomSoundCloudAlbum[], any[]]) => {
-          if (!active) return
-          if (Array.isArray(tData)) {
-            setCustomTracks(tData)
-            tData.forEach(t => registerCustomSoundcloudTrack(t))
-            try {
-              localStorage.setItem('aa_custom_tracks_cache', JSON.stringify(tData))
-            } catch {}
-          }
-          if (Array.isArray(aData)) {
-            setCustomAlbums(aData)
-            aData.forEach(a => registerCustomSoundcloudAlbum(a))
-            try {
-              localStorage.setItem('aa_custom_albums_cache', JSON.stringify(aData))
-            } catch {}
-          }
-          if (Array.isArray(sData)) {
-            sData.forEach((slot, idx) => {
-              if (slot && slot.soundcloudUrl) {
-                registerCustomSoundcloudAlbum({
-                  id: slot.id || `slot-album-${idx + 1}`,
-                  title: slot.title,
-                  artist: slot.artist,
-                  cover: slot.cover,
-                  soundcloudUrl: slot.soundcloudUrl,
-                  tracks: slot.tracks || [],
-                })
-              }
-            })
-          }
-        })
-        .catch(() => {})
+    const apply = () => {
+      const snapshot = getCatalogSnapshot()
+      setCustomTracks(snapshot.singles)
+      setCustomAlbums(snapshot.albums)
     }
+    const load = () => void loadCatalog()
+    apply()
     load()
+    window.addEventListener('aa:artists_synced', apply)
     window.addEventListener('aa:custom_tracks_updated', load)
     window.addEventListener('aa:scene_updated', load)
     return () => {
-      active = false
+      window.removeEventListener('aa:artists_synced', apply)
       window.removeEventListener('aa:custom_tracks_updated', load)
       window.removeEventListener('aa:scene_updated', load)
     }
@@ -376,15 +343,15 @@ export function HomePage({
 
     // Prepend user-added SoundCloud albums from Admin panel
     for (const ca of customAlbums) {
-      const albDef = registerCustomSoundcloudAlbum(ca)
-      const idx = allAlbums.indexOf(albDef)
+      const idx = allAlbums.findIndex(a => a.id === ca.id)
+      if (idx < 0) continue
       const uid = `album:${ca.id}`
       if (!seen.has(uid)) {
         seen.add(uid)
         list.push({
           uid,
           kind: 'album',
-          index: idx >= 0 ? idx : allAlbums.length - 1,
+          index: idx,
           id: ca.id,
           title: ca.title,
           artist: ca.artist,
@@ -399,15 +366,15 @@ export function HomePage({
 
     // Prepend user-added SoundCloud releases from Admin panel so they appear first in the feed
     for (const ct of customTracks) {
-      const trkDef = registerCustomSoundcloudTrack(ct)
-      const idx = allTracks.indexOf(trkDef)
+      const idx = allTracks.findIndex(t => t.id === ct.id)
+      if (idx < 0) continue
       const uid = `track:${ct.id}`
       if (!seen.has(uid)) {
         seen.add(uid)
         list.push({
           uid,
           kind: 'track',
-          index: idx >= 0 ? idx : allTracks.length - 1,
+          index: idx,
           id: ct.id,
           title: ct.title,
           artist: ct.artist,
@@ -523,117 +490,98 @@ export function HomePage({
     return result
   }, [])
 
+  // Рецензии сообщества приходят с сервера (таблица Review): настоящие авторы, оценки и лайки.
+  useEffect(() => {
+    let active = true
+    fetch('/api/reviews/recent?limit=50')
+      .then(res => (res.ok ? res.json() : []))
+      .then((data: ApiReview[]) => {
+        if (active && Array.isArray(data)) setApiReviews(data)
+      })
+      .catch(() => {})
+    return () => {
+      active = false
+    }
+  }, [customAlbums, customTracks])
+
+  useEffect(() => {
+    const token = getAuthToken()
+    if (!token || !user) {
+      setMyLikedIds(new Set())
+      return
+    }
+    let active = true
+    fetch('/api/reviews/liked/my', { headers: { Authorization: `Bearer ${token}` } })
+      .then(res => (res.ok ? res.json() : []))
+      .then((ids: string[]) => {
+        if (active && Array.isArray(ids)) setMyLikedIds(new Set(ids))
+      })
+      .catch(() => {})
+    return () => {
+      active = false
+    }
+  }, [user])
+
   const reviews = useMemo<FeedReview[]>(() => {
-    const combined: FeedReview[] = []
-    const userNickname = user?.nickname?.trim() || 'Слушатель'
-    const userInitials = user?.avatarSymbol?.trim() || getInitials(userNickname)
-
-    // Prepend real reviews saved by the user on albums or tracks
-    for (let i = userRatings.length - 1; i >= 0; i--) {
-      const item = userRatings[i]
-      if (!item.review.text.trim()) continue
-      if (item.id.startsWith('month-artist:')) continue
-
-      if (item.id.startsWith('track:')) {
-        const rawTrackId = item.id.slice('track:'.length)
-        const trkIdx = allTracks.findIndex(t => t.id === rawTrackId)
-        if (trkIdx < 0) continue
-        const trk = allTracks[trkIdx]
-        combined.push({
-          uid: `user-${item.id}`,
-          isUserReview: true,
-          verified: true,
-          baseLikes: 42,
-          authorName: userNickname,
-          authorInitials: userInitials,
-          authorAvatar: user?.avatarUrl || undefined,
-          timeLabel: 'Ваша рецензия',
-          kind: 'track',
-          releaseIndex: trkIdx,
-          releaseTitle: trk.title,
-          releaseArtist: trk.artist,
-          releaseCover: trk.cover,
-          scores: item.scores,
-          totalScore: item.totalScore,
-          reviewTitle: item.review.title || `${trk.artist} — ${trk.title}`,
-          reviewText: item.review.text,
-        })
-      } else {
-        const albIdx = allAlbums.findIndex(a => a.id === item.id)
-        if (albIdx < 0) continue
-        const alb = allAlbums[albIdx]
-        combined.push({
-          uid: `user-${item.id}`,
-          isUserReview: true,
-          verified: true,
-          baseLikes: 42,
-          authorName: userNickname,
-          authorInitials: userInitials,
-          authorAvatar: user?.avatarUrl || undefined,
-          timeLabel: 'Ваша рецензия',
-          kind: 'album',
-          releaseIndex: albIdx,
-          releaseTitle: alb.title,
-          releaseArtist: alb.artist,
-          releaseCover: alb.cover,
-          scores: item.scores,
-          totalScore: item.totalScore,
-          reviewTitle: item.review.title || `${alb.artist} — ${alb.title}`,
-          reviewText: item.review.text,
-        })
+    const result: FeedReview[] = []
+    for (const r of apiReviews) {
+      if (r.targetType === 'artist' || r.targetId.startsWith('month-artist:')) continue
+      const isTrack = r.targetType === 'track' || r.targetId.startsWith('track:')
+      const bareId = r.targetId.replace(/^(track|album):/, '')
+      const releaseIndex = isTrack
+        ? allTracks.findIndex(t => t.id === (r.trackId ?? bareId))
+        : allAlbums.findIndex(a => a.id === (r.albumId ?? bareId))
+      if (releaseIndex < 0) continue
+      const release = isTrack ? allTracks[releaseIndex] : allAlbums[releaseIndex]
+      const scores: AlbumScores = {
+        rhymes: r.rhymesScore,
+        structure: r.structureScore,
+        style: r.styleScore,
+        individuality: r.individualityScore,
+        atmosphere: r.atmosphereScore,
       }
+      const authorName = r.user?.nickname || 'Слушатель'
+      result.push({
+        uid: `review-${r.id}`,
+        reviewId: r.id,
+        authorId: r.userId,
+        likedByMe: myLikedIds.has(r.id),
+        isUserReview: Boolean(user && r.userId === user.id),
+        verified: false,
+        baseLikes: r.likesCount,
+        authorName,
+        authorInitials: r.user?.avatarSymbol?.trim() || getInitials(authorName),
+        authorAvatar: r.user?.avatarUrl || undefined,
+        timeLabel: user && r.userId === user.id ? 'Ваша рецензия' : relativeTime(r.createdAt),
+        kind: isTrack ? 'track' : 'album',
+        releaseIndex,
+        releaseTitle: release.title,
+        releaseArtist: release.artist,
+        releaseCover: release.cover,
+        scores,
+        totalScore: r.totalScore,
+        reviewTitle: r.title || `${release.artist} — ${release.title}`,
+        reviewText: r.text,
+      })
     }
+    return result
+  }, [apiReviews, myLikedIds, user, customAlbums, customTracks])
 
-    for (const seed of CURATED_REVIEWS) {
-      if (seed.kind === 'album') {
-        const albIdx = allAlbums.findIndex(a => a.id === seed.targetId)
-        if (albIdx < 0) continue
-        const alb = allAlbums[albIdx]
-        combined.push({
-          uid: seed.uid,
-          verified: seed.verified,
-          baseLikes: seed.baseLikes,
-          authorName: seed.authorName,
-          authorInitials: getInitials(seed.authorName),
-          authorAvatar: seed.authorAvatar,
-          timeLabel: seed.timeLabel,
-          kind: 'album',
-          releaseIndex: albIdx,
-          releaseTitle: alb.title,
-          releaseArtist: alb.artist,
-          releaseCover: alb.cover,
-          scores: seed.scores,
-          totalScore: calculateAlbumScore(seed.scores),
-          reviewTitle: seed.reviewTitle,
-          reviewText: seed.reviewText,
-        })
-      } else {
-        const trkIdx = allTracks.findIndex(t => t.id === seed.targetId)
-        if (trkIdx < 0) continue
-        const trk = allTracks[trkIdx]
-        combined.push({
-          uid: seed.uid,
-          verified: seed.verified,
-          baseLikes: seed.baseLikes,
-          authorName: seed.authorName,
-          authorInitials: getInitials(seed.authorName),
-          authorAvatar: seed.authorAvatar,
-          timeLabel: seed.timeLabel,
-          kind: 'track',
-          releaseIndex: trkIdx,
-          releaseTitle: trk.title,
-          releaseArtist: trk.artist,
-          releaseCover: trk.cover,
-          scores: seed.scores,
-          totalScore: calculateAlbumScore(seed.scores),
-          reviewTitle: seed.reviewTitle,
-          reviewText: seed.reviewText,
-        })
-      }
+  const toggleReviewLike = async (rev: FeedReview) => {
+    const token = getAuthToken()
+    if (!token || !user) return
+    try {
+      const res = await fetch(`/api/reviews/${encodeURIComponent(rev.reviewId)}/like`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (!res.ok) return
+      const data: { liked: boolean; likesCount: number } = await res.json()
+      setLikeOverrides(prev => ({ ...prev, [rev.reviewId]: { liked: data.liked, count: data.likesCount } }))
+    } catch {
+      // сеть недоступна — состояние лайка не меняем
     }
-
-    return combined
-  }, [user, userRatings])
+  }
 
   const query = normalizeQuery(search)
 
@@ -677,55 +625,17 @@ export function HomePage({
     }
     if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
     event.preventDefault()
-    if (item.kind === 'album') {
-      let idx = item.index
-      if (idx < 0 || idx >= allAlbums.length) {
-        const found = customAlbums.find(a => a.id === item.id)
-        if (found) {
-          const alb = registerCustomSoundcloudAlbum(found)
-          idx = allAlbums.indexOf(alb)
-        }
-      }
-      onOpenAlbum(idx >= 0 ? idx : 0, true)
-    } else {
-      let idx = item.index
-      if (idx < 0 || idx >= allTracks.length) {
-        const trk = registerCustomSoundcloudTrack({
-          id: item.id,
-          title: item.title,
-          artist: item.artist,
-          cover: item.cover,
-          soundcloudUrl: item.soundcloudUrl || '',
-          soundcloudTrackId: item.soundcloudTrackId,
-        })
-        idx = allTracks.indexOf(trk)
-      }
-      onOpenTrack(idx, true)
-    }
+    if (item.index < 0) return
+    if (item.kind === 'album') onOpenAlbum(item.index, true)
+    else onOpenTrack(item.index, true)
   }
 
   const handlePlayRelease = (item: FeedRelease) => {
     if (item.kind === 'album') {
-      let alb = allAlbums[item.index]
-      if (!alb && item.soundcloudUrl) {
-        const found = customAlbums.find(a => a.id === item.id)
-        if (found) {
-          alb = registerCustomSoundcloudAlbum(found)
-        }
-      }
+      const alb = allAlbums[item.index]
       if (alb) void playOrToggleAlbum(alb)
     } else {
-      let trk = allTracks[item.index]
-      if (!trk && item.soundcloudUrl) {
-        trk = registerCustomSoundcloudTrack({
-          id: item.id,
-          title: item.title,
-          artist: item.artist,
-          cover: item.cover,
-          soundcloudUrl: item.soundcloudUrl,
-          soundcloudTrackId: item.soundcloudTrackId,
-        })
-      }
+      const trk = allTracks[item.index]
       if (!trk) return
       const feedTracks = visibleReleases
         .filter(r => r.kind === 'track')
@@ -1115,8 +1025,10 @@ export function HomePage({
                 }
                 const coverKey = `revcover:${rev.uid}`
                 const avatarKey = `revava:${rev.uid}`
-                const isLiked = Boolean(likedReviews[rev.uid])
-                const likeCount = rev.baseLikes + (isLiked ? 1 : 0)
+                const likeState = likeOverrides[rev.reviewId]
+                const isLiked = likeState ? likeState.liked : rev.likedByMe
+                const likeCount = likeState ? likeState.count : rev.baseLikes
+                const canLike = Boolean(user)
                 const isScoresOpen = Boolean(openScoreReviews[rev.uid])
                 const isExpanded = Boolean(expandedReviews[rev.uid])
 
@@ -1245,9 +1157,9 @@ export function HomePage({
                           type="button"
                           className={`home-review-like-btn${isLiked ? ' is-liked' : ''}`}
                           aria-pressed={isLiked}
-                          onClick={() =>
-                            setLikedReviews(prev => ({ ...prev, [rev.uid]: !prev[rev.uid] }))
-                          }
+                          disabled={!canLike}
+                          title={!user ? 'Войди, чтобы оценить рецензию' : undefined}
+                          onClick={() => void toggleReviewLike(rev)}
                           aria-label={`Нравится рецензия: ${likeCount}`}
                         >
                           <svg width="20" height="19" viewBox="0 0 24 22" fill="none" aria-hidden="true" className="home-review-gem-heart">

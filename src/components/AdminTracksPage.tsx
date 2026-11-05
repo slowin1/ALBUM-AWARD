@@ -1,17 +1,9 @@
 import { useState, useEffect, useRef, useMemo, type FormEvent, type ChangeEvent } from 'react'
 import { FluidBackground } from './FluidBackground'
+import { AdminOverview } from './AdminOverview'
 import { playOrToggleTrack, useReleasePlayback } from '../hooks/useAudioPlayer'
 import { getAuthToken, useAuth } from '../hooks/useAuth'
-import {
-  artists,
-  type ArtistDefinition,
-  parseArtistNames,
-  registerCustomSoundcloudTrack,
-  registerCustomSoundcloudAlbum,
-  unregisterCustomSoundcloudTrack,
-  unregisterCustomSoundcloudAlbum,
-  findOrCreateArtist,
-} from '../data/artists'
+import { artists, allTracks, loadCatalog, type ArtistDefinition } from '../data/artists'
 import {
   albums as sceneDefaultAlbums,
   updateSceneAlbumSlot,
@@ -75,6 +67,14 @@ export type AdminTracksPageProps = {
   onNavigateToRegister?: () => void
 }
 
+/** Разбор строки «A, B & C» для чипов выбора — только отображение, связи артистов строит сервер. */
+function splitCredit(value: string): string[] {
+  return value
+    .split(/\s*(?:,|&|\bfeat\.?|\bft\.?|\bx\b)\s*/i)
+    .map(n => n.trim())
+    .filter(Boolean)
+}
+
 function authHeaders(extra: Record<string, string> = {}) {
   const token = getAuthToken()
   return {
@@ -109,6 +109,109 @@ type PreviewData =
       soundcloudTrackId?: string
     }
 
+type AdminSection = 'overview' | 'link' | 'track' | 'album' | 'scene' | 'catalog'
+
+const ADMIN_SECTIONS: Record<AdminSection, { nav: string; title: string; desc: string }> = {
+  overview: {
+    nav: 'Обзор',
+    title: 'Обзор',
+    desc: 'Что сейчас в каталоге, сколько слотов сцены заполнено и какие релизы стоит поправить.',
+  },
+  link: {
+    nav: 'По ссылке',
+    title: 'Импорт по ссылке',
+    desc: 'Вставьте ссылку на трек или плейлист SoundCloud: название, обложка и треклист подтянутся сами. Перед сохранением всё можно поправить.',
+  },
+  track: {
+    nav: 'Трек вручную',
+    title: 'Новый трек',
+    desc: 'Название, исполнители, обложка и ссылка на аудио. Трек появится в ленте на главной сразу после сохранения.',
+  },
+  album: {
+    nav: 'Альбом вручную',
+    title: 'Новый альбом',
+    desc: 'Соберите альбом с обложкой, годом выпуска и треклистом. У каждого трека может быть свой исполнитель или фит.',
+  },
+  scene: {
+    nav: '3D-сцена',
+    title: '3D-сцена',
+    desc: 'По двенадцать слотов в каждом колесе. Назначьте релиз из базы или заполните слот вручную — сцена обновится после сохранения слота.',
+  },
+  catalog: {
+    nav: 'Каталог',
+    title: 'Каталог релизов',
+    desc: 'Все треки и альбомы в базе данных. Отсюда их можно прослушать, отредактировать или убрать из ленты.',
+  },
+}
+
+const ADMIN_NAV_GROUPS: { label: string; items: AdminSection[] }[] = [
+  { label: '', items: ['overview'] },
+  { label: 'Добавить релиз', items: ['link', 'track', 'album'] },
+  { label: 'Управление', items: ['catalog', 'scene'] },
+]
+
+function AdminNavIcon({ name }: { name: AdminSection }) {
+  const common = {
+    width: 16,
+    height: 16,
+    viewBox: '0 0 24 24',
+    fill: 'none',
+    stroke: 'currentColor',
+    strokeWidth: 1.8,
+    strokeLinecap: 'round' as const,
+    strokeLinejoin: 'round' as const,
+    'aria-hidden': true,
+  }
+  switch (name) {
+    case 'overview':
+      return (
+        <svg {...common}>
+          <rect x="3" y="3" width="7" height="9" rx="2" />
+          <rect x="14" y="3" width="7" height="5" rx="2" />
+          <rect x="14" y="12" width="7" height="9" rx="2" />
+          <rect x="3" y="16" width="7" height="5" rx="2" />
+        </svg>
+      )
+    case 'link':
+      return (
+        <svg {...common}>
+          <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+          <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+        </svg>
+      )
+    case 'track':
+      return (
+        <svg {...common}>
+          <path d="M9 18V5l12-2v13" />
+          <circle cx="6" cy="18" r="3" />
+          <circle cx="18" cy="16" r="3" />
+        </svg>
+      )
+    case 'album':
+      return (
+        <svg {...common}>
+          <circle cx="12" cy="12" r="9" />
+          <circle cx="12" cy="12" r="2.5" />
+        </svg>
+      )
+    case 'scene':
+      return (
+        <svg {...common}>
+          <path d="M12 2 3 7v10l9 5 9-5V7z" />
+          <path d="M3 7l9 5 9-5" />
+          <path d="M12 12v10" />
+        </svg>
+      )
+    default:
+      return (
+        <svg {...common}>
+          <path d="M8 6h13M8 12h13M8 18h13" />
+          <path d="M3 6h.01M3 12h.01M3 18h.01" />
+        </svg>
+      )
+  }
+}
+
 function AdminTrackItem({
   track,
   onEdit,
@@ -124,14 +227,14 @@ function AdminTrackItem({
 
   const linkedArtist = useMemo(() => {
     if (track.artistId) {
-      return artists.find(a => a.id === track.artistId)
+      return artists.find(a => a.dbId === track.artistId || a.id === track.artistId)
     }
     return artists.find(a => a.name.toLowerCase() === track.artist.toLowerCase())
   }, [track.artistId, track.artist])
 
   const handlePlay = () => {
-    const trackDef = registerCustomSoundcloudTrack(track)
-    playOrToggleTrack(trackDef)
+    const trackDef = allTracks.find(t => t.id === track.id)
+    if (trackDef) playOrToggleTrack(trackDef)
   }
 
   return (
@@ -545,8 +648,8 @@ function MultiArtistSelector({
   // Resolve current list of artists from `value` string
   const currentArtists = useMemo<MultiArtistItem[]>(() => {
     if (!value || !value.trim()) return []
-    const parsedNames = parseArtistNames(value)
-    return parsedNames.map((name, idx) => {
+    const parsedNames = splitCredit(value)
+    return parsedNames.map((name: string, idx: number) => {
       const match = pool.find(
         a => a.name.toLowerCase() === name.toLowerCase() || (selectedArtistIds && selectedArtistIds[idx] === a.id),
       )
@@ -758,7 +861,8 @@ function MultiArtistSelector({
 
 export function AdminTracksPage({ onBackToHome, onNavigateToRegister }: AdminTracksPageProps) {
   const { user, isAuthenticated, isAdmin } = useAuth()
-  const [creationMode, setCreationMode] = useState<'link' | 'track' | 'album' | 'scene'>('link')
+  const [creationMode, setCreationMode] = useState<AdminSection>('overview')
+  const [catalogQuery, setCatalogQuery] = useState('')
   const [sceneMode, setSceneMode] = useState<'albums' | 'tracks' | 'artists'>('albums')
   const [sceneAlbumsState, setSceneAlbumsState] = useState<AlbumDefinition[]>(() => [...sceneDefaultAlbums])
   const [sceneTracksState, setSceneTracksState] = useState<TrackDefinition[]>(() => [...sceneDefaultTracks])
@@ -800,93 +904,27 @@ export function AdminTracksPage({ onBackToHome, onNavigateToRegister }: AdminTra
   const [activeTab, setActiveTab] = useState<'all' | 'albums' | 'tracks'>('all')
   const [statusMessage, setStatusMessage] = useState<{ type: 'ok' | 'err'; text: string } | null>(null)
 
-  // Database artists dynamically extracted from all albums and tracks in DB
+  // Исполнители — это таблица Artist: список приходит с сервера (/api/artists/pages), счётчики считает он же.
+  const [catalogVersion, setCatalogVersion] = useState(0)
+  useEffect(() => {
+    const bump = () => setCatalogVersion(v => v + 1)
+    window.addEventListener('aa:artists_synced', bump)
+    return () => window.removeEventListener('aa:artists_synced', bump)
+  }, [])
+
   const databaseArtists = useMemo(() => {
-    const map = new Map<string, { id: string; name: string; avatar: string; albumsCount: number; tracksCount: number }>()
-
-    const register = (name: string, cover?: string, explicitId?: string) => {
-      const clean = (name || '').trim()
-      if (!clean || clean.length < 2) return null
-      if (/^слот\s+\d+$/i.test(clean) || clean.toLowerCase() === 'исполнитель') return null
-      const id = explicitId || clean.toLowerCase().replace(/[^a-z0-9а-яё]+/gi, '-').replace(/^-+|-+$/g, '') || 'artist'
-      if (!map.has(id)) {
-        map.set(id, {
-          id,
-          name: clean,
-          avatar: cover && !cover.includes('placeholder') ? cover : '/covers/placeholder.jpg',
-          tracksCount: 0,
-          albumsCount: 0,
-        })
-      }
-      const entry = map.get(id)!
-      if (cover && !cover.includes('placeholder') && entry.avatar.includes('placeholder')) {
-        entry.avatar = cover
-      }
-      return entry
-    }
-
-    // 1. From custom albums in DB
-    for (const alb of albums) {
-      const primary = register(alb.artist, alb.cover, alb.artistId)
-      if (primary) primary.albumsCount += 1
-
-      // Parse co-artists
-      const parsedNames = parseArtistNames(alb.artist)
-      for (const n of parsedNames) {
-        if (n.toLowerCase() !== alb.artist.toLowerCase()) {
-          const collab = register(n, alb.cover)
-          if (collab) collab.albumsCount += 1
-        }
-      }
-
-      // Scan tracks inside the album
-      for (const t of alb.tracks || []) {
-        const tArtName = t.artist || alb.artist
-        const tArt = register(tArtName, t.cover || alb.cover)
-        if (tArt) tArt.tracksCount += 1
-
-        const tParsed = parseArtistNames(tArtName, t.title)
-        for (const n of tParsed) {
-          if (n.toLowerCase() !== tArtName.toLowerCase()) {
-            const collab = register(n, t.cover || alb.cover)
-            if (collab) collab.tracksCount += 1
-          }
-        }
-      }
-    }
-
-    // 2. From custom tracks in DB
-    for (const trk of tracks) {
-      const primary = register(trk.artist, trk.cover, trk.artistId)
-      if (primary) primary.tracksCount += 1
-
-      const parsedNames = parseArtistNames(trk.artist, trk.title)
-      for (const n of parsedNames) {
-        if (n.toLowerCase() !== trk.artist.toLowerCase()) {
-          const collab = register(n, trk.cover)
-          if (collab) collab.tracksCount += 1
-        }
-      }
-    }
-
-    // 3. From catalogue artists
-    for (const art of artists) {
-      if (/^слот\s+\d+$/i.test(art.name) || art.name.toLowerCase() === 'исполнитель') continue
-      if (!map.has(art.id)) {
-        map.set(art.id, {
-          id: art.id,
-          name: art.name,
-          avatar: art.avatar || '/covers/placeholder.jpg',
-          albumsCount: art.albums?.length || 0,
-          tracksCount: art.tracks?.length || 0,
-        })
-      }
-    }
-
-    return Array.from(map.values()).sort((a, b) =>
-      (b.albumsCount + b.tracksCount) - (a.albumsCount + a.tracksCount) || a.name.localeCompare(b.name)
-    )
-  }, [albums, tracks])
+    return artists
+      .filter(a => !/^слот\s+\d+$/i.test(a.name) && a.name.toLowerCase() !== 'исполнитель')
+      .map(a => ({
+        id: a.dbId ?? a.id,
+        name: a.name,
+        avatar: a.avatar || '/covers/placeholder.jpg',
+        albumsCount: a.albums.length,
+        tracksCount: a.tracks.length,
+      }))
+      .sort((x, y) => (y.albumsCount + y.tracksCount) - (x.albumsCount + x.tracksCount) || x.name.localeCompare(y.name))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [catalogVersion])
 
   // Editing state
   const [editingItem, setEditingItem] = useState<
@@ -928,20 +966,13 @@ export function AdminTracksPage({ onBackToHome, onNavigateToRegister }: AdminTra
       if (tracksRes.ok) {
         const data: CustomSoundCloudTrack[] = await tracksRes.json()
         setTracks(data)
-        data.forEach(t => registerCustomSoundcloudTrack(t))
-        try {
-          localStorage.setItem('aa_custom_tracks_cache', JSON.stringify(data))
-        } catch {}
       }
 
       if (albumsRes.ok) {
         const aData: CustomSoundCloudAlbum[] = await albumsRes.json()
         setAlbums(aData)
-        aData.forEach(a => registerCustomSoundcloudAlbum(a))
-        try {
-          localStorage.setItem('aa_custom_albums_cache', JSON.stringify(aData))
-        } catch {}
       }
+      await loadCatalog()
     } catch {
       // Ignore network errors
     }
@@ -949,6 +980,10 @@ export function AdminTracksPage({ onBackToHome, onNavigateToRegister }: AdminTra
 
   useEffect(() => {
     void fetchReleases()
+    // после создания релиза сервер пересчитывает страницы исполнителей
+    const onCatalogChanged = () => void loadCatalog()
+    window.addEventListener('aa:custom_tracks_updated', onCatalogChanged)
+    return () => window.removeEventListener('aa:custom_tracks_updated', onCatalogChanged)
   }, [])
 
   const handleUploadCoverFile = async (file: File): Promise<string | null> => {
@@ -1107,14 +1142,6 @@ export function AdminTracksPage({ onBackToHome, onNavigateToRegister }: AdminTra
           })
           updateSceneAlbumSlot(slotIndex, updated)
           if (data.tracks && data.tracks.length > 0) {
-            registerCustomSoundcloudAlbum({
-              id: slot.id || `slot-album-${slotIndex + 1}`,
-              title: updated.title,
-              artist: updated.artist,
-              cover: updated.cover,
-              soundcloudUrl: url,
-              tracks: data.tracks,
-            })
             setStatusMessage({ type: 'ok', text: `Получено ${data.tracks.length} треков альбома из SoundCloud!` })
           } else {
             setStatusMessage({ type: 'ok', text: 'Данные получены из SoundCloud!' })
@@ -1177,14 +1204,6 @@ export function AdminTracksPage({ onBackToHome, onNavigateToRegister }: AdminTra
       updateSceneAlbumSlot(slotIndex, updatedAlbum)
 
       if (tracksList.length > 0) {
-        registerCustomSoundcloudAlbum({
-          id: slot.id || `slot-album-${slotIndex + 1}`,
-          title: updatedAlbum.title,
-          artist: updatedAlbum.artist,
-          cover: updatedAlbum.cover,
-          soundcloudUrl: updatedAlbum.soundcloudUrl || '',
-          tracks: tracksList,
-        })
       }
 
       setStatusMessage({
@@ -1295,7 +1314,6 @@ export function AdminTracksPage({ onBackToHome, onNavigateToRegister }: AdminTra
         next[slotIndex] = updated
         return next
       })
-      registerCustomSoundcloudAlbum(found)
       setStatusMessage({ type: 'ok', text: `Альбом "${found.title}" назначен в слот ${slotIndex + 1}!` })
     } else if (mode === 'artists') {
       const cleanId = releaseId.startsWith('artist:') ? releaseId.replace(/^artist:/, '') : releaseId
@@ -1311,7 +1329,7 @@ export function AdminTracksPage({ onBackToHome, onNavigateToRegister }: AdminTra
         year: 2026,
         cover: found.avatar || '/covers/placeholder.jpg',
         sourceUrl: '',
-        pageId: found.id,
+        pageId: artists.find(x => x.dbId === found.id)?.id ?? found.id,
       }
       updateSceneArtistSlot(slotIndex, updated)
       setSceneArtistsState(prev => {
@@ -1319,7 +1337,6 @@ export function AdminTracksPage({ onBackToHome, onNavigateToRegister }: AdminTra
         next[slotIndex] = updated
         return next
       })
-      findOrCreateArtist(found.name, found.avatar)
       setStatusMessage({ type: 'ok', text: `Исполнитель "${found.name}" из базы данных назначен в слот ${slotIndex + 1}!` })
     } else {
       // mode === 'tracks'
@@ -1352,19 +1369,6 @@ export function AdminTracksPage({ onBackToHome, onNavigateToRegister }: AdminTra
         })
 
         // Also register track in audio runtime so it's immediately playable
-        registerCustomSoundcloudTrack({
-          id: albumTrack.id || `${album.id}-trk-${slotIndex + 1}`,
-          albumId: album.id,
-          title: albumTrack.title,
-          albumTitle: album.title,
-          artist: albumTrack.artist || album.artist,
-          artistId: albumTrack.artistId || album.artistId,
-          artistIds: albumTrack.artistIds || album.artistIds,
-          cover: albumTrack.cover || album.cover || '/covers/placeholder.jpg',
-          duration: albumTrack.duration || '3:00',
-          soundcloudUrl: albumTrack.soundcloudUrl || album.soundcloudUrl || '',
-          soundcloudTrackId: albumTrack.soundcloudTrackId,
-        })
 
         setStatusMessage({
           type: 'ok',
@@ -1393,7 +1397,6 @@ export function AdminTracksPage({ onBackToHome, onNavigateToRegister }: AdminTra
           next[slotIndex] = updated
           return next
         })
-        registerCustomSoundcloudTrack(found)
         setStatusMessage({ type: 'ok', text: `Трек "${found.title}" назначен в слот ${slotIndex + 1}!` })
       }
     }
@@ -1454,13 +1457,9 @@ export function AdminTracksPage({ onBackToHome, onNavigateToRegister }: AdminTra
         })
         if (res.ok) {
           const created: CustomSoundCloudAlbum = await res.json()
-          registerCustomSoundcloudAlbum(created)
           setAlbums(prev => {
             const next = [created, ...prev]
-            try {
-              localStorage.setItem('aa_custom_albums_cache', JSON.stringify(next))
-              window.dispatchEvent(new CustomEvent('aa:custom_tracks_updated'))
-            } catch {}
+            window.dispatchEvent(new CustomEvent('aa:custom_tracks_updated'))
             return next
           })
           setPreview(null)
@@ -1480,13 +1479,9 @@ export function AdminTracksPage({ onBackToHome, onNavigateToRegister }: AdminTra
         })
         if (res.ok) {
           const created: CustomSoundCloudTrack = await res.json()
-          registerCustomSoundcloudTrack(created)
           setTracks(prev => {
             const next = [created, ...prev]
-            try {
-              localStorage.setItem('aa_custom_tracks_cache', JSON.stringify(next))
-              window.dispatchEvent(new CustomEvent('aa:custom_tracks_updated'))
-            } catch {}
+            window.dispatchEvent(new CustomEvent('aa:custom_tracks_updated'))
             return next
           })
           setPreview(null)
@@ -1537,7 +1532,6 @@ export function AdminTracksPage({ onBackToHome, onNavigateToRegister }: AdminTra
       })
       if (res.ok) {
         const created: CustomSoundCloudTrack = await res.json()
-        registerCustomSoundcloudTrack(created)
         setTracks(prev => [created, ...prev])
         setManualTrackTitle('')
         setManualTrackArtist('')
@@ -1604,7 +1598,6 @@ export function AdminTracksPage({ onBackToHome, onNavigateToRegister }: AdminTra
       })
       if (res.ok) {
         const created: CustomSoundCloudAlbum = await res.json()
-        registerCustomSoundcloudAlbum(created)
         setAlbums(prev => [created, ...prev])
         setManualAlbumTitle('')
         setManualAlbumCover('')
@@ -1630,12 +1623,9 @@ export function AdminTracksPage({ onBackToHome, onNavigateToRegister }: AdminTra
       })
       const data = await res.json().catch(() => ({}))
       if (res.ok && data.success !== false) {
-        unregisterCustomSoundcloudTrack(id)
         setTracks(prev => {
           const next = prev.filter(t => t.id !== id)
-          try {
-            localStorage.setItem('aa_custom_tracks_cache', JSON.stringify(next))
-          } catch {}
+          void loadCatalog()
           return next
         })
 
@@ -1685,12 +1675,9 @@ export function AdminTracksPage({ onBackToHome, onNavigateToRegister }: AdminTra
       })
       const data = await res.json().catch(() => ({}))
       if (res.ok && data.success !== false) {
-        unregisterCustomSoundcloudAlbum(id)
         setAlbums(prev => {
           const next = prev.filter(a => a.id !== id)
-          try {
-            localStorage.setItem('aa_custom_albums_cache', JSON.stringify(next))
-          } catch {}
+          void loadCatalog()
           return next
         })
 
@@ -1803,14 +1790,10 @@ export function AdminTracksPage({ onBackToHome, onNavigateToRegister }: AdminTra
       if (res.ok) {
         const updatedTrack: CustomSoundCloudTrack = await res.json()
 
-        unregisterCustomSoundcloudTrack(id)
-        registerCustomSoundcloudTrack(updatedTrack)
 
         setTracks(prev => {
           const next = prev.map(t => (t.id === id ? updatedTrack : t))
-          try {
-            localStorage.setItem('aa_custom_tracks_cache', JSON.stringify(next))
-          } catch {}
+          void loadCatalog()
           return next
         })
 
@@ -1882,14 +1865,10 @@ export function AdminTracksPage({ onBackToHome, onNavigateToRegister }: AdminTra
       if (res.ok) {
         const updatedAlbum: CustomSoundCloudAlbum = await res.json()
 
-        unregisterCustomSoundcloudAlbum(id)
-        registerCustomSoundcloudAlbum(updatedAlbum)
 
         setAlbums(prev => {
           const next = prev.map(a => (a.id === id ? updatedAlbum : a))
-          try {
-            localStorage.setItem('aa_custom_albums_cache', JSON.stringify(next))
-          } catch {}
+          void loadCatalog()
           return next
         })
 
@@ -1991,31 +1970,27 @@ export function AdminTracksPage({ onBackToHome, onNavigateToRegister }: AdminTra
 
   if (!isAdmin) {
     return (
-      <main className="admin-page" role="main">
+      <main className="admin-page is-gate" role="main">
         <FluidBackground />
-        <div className="admin-container" style={{ textAlign: 'center', padding: '100px 20px', maxWidth: 620, margin: '0 auto' }}>
-          <div className="admin-badge" style={{ margin: '0 auto 18px', background: 'rgba(239, 68, 68, 0.15)', borderColor: 'rgba(239, 68, 68, 0.35)', color: '#f87171' }}>
-            🔒 Доступ ограничен
-          </div>
-          <h1 className="admin-title" style={{ fontSize: '2.2rem', marginBottom: 14 }}>
-            Панель управления
-          </h1>
-          <p className="admin-subtitle" style={{ fontSize: '1.05rem', color: 'rgba(255, 255, 255, 0.7)', lineHeight: 1.6, marginBottom: 32 }}>
+        <div className="admin-gate">
+          <span className="admin-gate-icon" aria-hidden="true">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="4" y="11" width="16" height="10" rx="2.5" />
+              <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+            </svg>
+          </span>
+          <h1 className="admin-title">Нужны права администратора</h1>
+          <p className="admin-subtitle">
             {isAuthenticated
-              ? `Вы авторизованы как «${user?.nickname || user?.email}», но ваш аккаунт имеет роль «${user?.role || 'user'}». Доступ к панели администратора разрешён только пользователям с ролью «admin».`
-              : 'Доступ к добавлению, редактированию и удалению релизов открыт только для администраторов премии. Войдите в аккаунт с правами администратора.'}
+              ? `Вы вошли как «${user?.nickname || user?.email}» с ролью «${user?.role || 'user'}». Панель доступна только пользователям с ролью «admin».`
+              : 'Добавлять, редактировать и удалять релизы могут только администраторы премии. Войдите в аккаунт с правами администратора.'}
           </p>
-          <div style={{ display: 'flex', gap: 14, justifyContent: 'center', flexWrap: 'wrap' }}>
+          <div className="admin-gate-actions">
             <button type="button" onClick={onBackToHome} className="admin-back-btn">
-              ← На главную
+              На главную
             </button>
             {!isAuthenticated && onNavigateToRegister && (
-              <button
-                type="button"
-                onClick={onNavigateToRegister}
-                className="admin-submit-btn"
-                style={{ width: 'auto', padding: '10px 24px', cursor: 'pointer' }}
-              >
+              <button type="button" onClick={onNavigateToRegister} className="admin-submit-btn">
                 Войти в аккаунт
               </button>
             )}
@@ -2025,61 +2000,95 @@ export function AdminTracksPage({ onBackToHome, onNavigateToRegister }: AdminTra
     )
   }
 
+  const catalogNeedle = catalogQuery.trim().toLowerCase()
+  const visibleAlbums = catalogNeedle
+    ? albums.filter(a => `${a.title} ${a.artist}`.toLowerCase().includes(catalogNeedle))
+    : albums
+  const visibleTracks = catalogNeedle
+    ? tracks.filter(t => `${t.title} ${t.artist}`.toLowerCase().includes(catalogNeedle))
+    : tracks
+  const currentSection = ADMIN_SECTIONS[creationMode]
+
   return (
     <main className="admin-page" role="main">
       <FluidBackground />
 
-      <div className="admin-container">
-        <div className="admin-header-block">
-          <div className="admin-header-left">
-            <span className="admin-badge">Панель управления · База данных</span>
-            <h1 className="admin-title">Добавление релизов в каталог</h1>
-            <p className="admin-subtitle">
-              Добавляйте треки и альбомы вручную с загрузкой обложек или импортируйте по прямой ссылке из SoundCloud. Все релизы сохраняются в базе данных.
-            </p>
+      <div className="admin-shell">
+        <div className="admin-sidebar">
+          <div className="admin-side-brand">
+            <img className="admin-side-logo" src="/logo-transparent.png" alt="Album Awards" />
+            <span className="admin-side-brand-sub">Панель администратора</span>
           </div>
-          <button type="button" className="admin-back-btn" onClick={onBackToHome}>
-            ← На главную
-          </button>
+
+          <nav className="admin-nav" aria-label="Разделы панели">
+            {ADMIN_NAV_GROUPS.map(group => (
+              <div key={group.label} className="admin-nav-group">
+                {group.label && <p className="admin-nav-label">{group.label}</p>}
+                {group.items.map(id => (
+                  <button
+                    key={id}
+                    type="button"
+                    className={`admin-nav-item${creationMode === id ? ' is-active' : ''}`}
+                    aria-current={creationMode === id ? 'page' : undefined}
+                    onClick={() => { setCreationMode(id); setStatusMessage(null) }}
+                  >
+                    <AdminNavIcon name={id} />
+                    <span className="admin-nav-text">{ADMIN_SECTIONS[id].nav}</span>
+                    {id === 'catalog' && (
+                      <span className="admin-nav-count">{albums.length + tracks.length}</span>
+                    )}
+                    {id === 'scene' && <span className="admin-nav-count">3 × 12</span>}
+                  </button>
+                ))}
+              </div>
+            ))}
+          </nav>
+
+
+          <div className="admin-side-foot">
+            <div className="admin-side-user">
+              <span className="admin-side-avatar" aria-hidden="true">
+                {(user?.nickname || user?.email || 'A').slice(0, 1).toUpperCase()}
+              </span>
+              <div className="admin-side-user-text">
+                <strong>{user?.nickname || 'Администратор'}</strong>
+                {user?.email && <span>{user.email}</span>}
+              </div>
+            </div>
+            <button type="button" className="admin-back-btn" onClick={onBackToHome}>
+              На главную
+            </button>
+          </div>
         </div>
 
-        {statusMessage && (
-          <div className={`admin-alert is-${statusMessage.type}`}>
-            {statusMessage.text}
+        <div className="admin-main">
+          <div className="admin-main-head">
+            <h1 className="admin-title">{currentSection.title}</h1>
+            <p className="admin-subtitle">{currentSection.desc}</p>
           </div>
+
+          {statusMessage && (
+            <div className={`admin-alert is-${statusMessage.type}`} role="status">
+              {statusMessage.text}
+            </div>
+          )}
+
+        {creationMode === 'overview' && (
+          <AdminOverview
+            albums={albums}
+            tracks={tracks}
+            artistsCount={databaseArtists.length}
+            sceneWheels={[
+              { id: 'albums', label: 'Колесо альбомов', slots: sceneAlbumsState },
+              { id: 'tracks', label: 'Колесо треков', slots: sceneTracksState },
+              { id: 'artists', label: 'Колесо исполнителей', slots: sceneArtistsState },
+            ]}
+            onEditAlbum={handleStartEditAlbum}
+            onEditTrack={handleStartEditTrack}
+            onOpenScene={() => { setCreationMode('scene'); setStatusMessage(null) }}
+            onOpenImport={() => { setCreationMode('link'); setStatusMessage(null) }}
+          />
         )}
-
-        {/* Mode Switcher */}
-        <div className="admin-mode-tabs" role="tablist">
-          <button
-            type="button"
-            className={`admin-mode-tab${creationMode === 'link' ? ' is-active' : ''}`}
-            onClick={() => { setCreationMode('link'); setStatusMessage(null) }}
-          >
-            Импорт по ссылке SoundCloud
-          </button>
-          <button
-            type="button"
-            className={`admin-mode-tab${creationMode === 'track' ? ' is-active' : ''}`}
-            onClick={() => { setCreationMode('track'); setStatusMessage(null) }}
-          >
-            + Добавить трек вручную
-          </button>
-          <button
-            type="button"
-            className={`admin-mode-tab${creationMode === 'album' ? ' is-active' : ''}`}
-            onClick={() => { setCreationMode('album'); setStatusMessage(null) }}
-          >
-            + Добавить альбом вручную
-          </button>
-          <button
-            type="button"
-            className={`admin-mode-tab${creationMode === 'scene' ? ' is-active' : ''}`}
-            onClick={() => { setCreationMode('scene'); setStatusMessage(null) }}
-          >
-            3D Сцена (12 слотов)
-          </button>
-        </div>
 
         {/* Card 1: Import by link */}
         {creationMode === 'link' && (
@@ -2103,7 +2112,7 @@ export function AdminTracksPage({ onBackToHome, onNavigateToRegister }: AdminTra
                   className="admin-submit-btn"
                   disabled={loadingParse || !urlInput.trim()}
                 >
-                  {loadingParse ? 'Загрузка…' : 'Проверить ссылку →'}
+                  {loadingParse ? 'Загрузка…' : 'Проверить ссылку'}
                 </button>
               </div>
             </form>
@@ -2182,8 +2191,8 @@ export function AdminTracksPage({ onBackToHome, onNavigateToRegister }: AdminTra
                   {loadingSave
                     ? 'Сохраняем…'
                     : preview.type === 'album'
-                    ? 'Сохранить альбом в базу ✓'
-                    : 'Сохранить трек в базу ✓'}
+                    ? 'Сохранить альбом'
+                    : 'Сохранить трек'}
                 </button>
               </div>
             )}
@@ -2267,7 +2276,7 @@ export function AdminTracksPage({ onBackToHome, onNavigateToRegister }: AdminTra
                         style={{ display: 'none' }}
                         onChange={handleTrackCoverUpload}
                       />
-                      {uploadingTrackCover ? 'Загрузка обложки…' : 'Выбрать файл обложки с устройства'}
+                      {uploadingTrackCover ? 'Загрузка обложки…' : 'Загрузить файл'}
                     </label>
                   </div>
                 </div>
@@ -2290,7 +2299,7 @@ export function AdminTracksPage({ onBackToHome, onNavigateToRegister }: AdminTra
                 className="admin-save-primary-btn"
                 disabled={loadingSave || !manualTrackTitle.trim() || !manualTrackArtist.trim()}
               >
-                {loadingSave ? 'Сохранение…' : 'Сохранить трек в базу данных ✓'}
+                {loadingSave ? 'Сохранение…' : 'Сохранить трек'}
               </button>
             </form>
           </div>
@@ -2373,7 +2382,7 @@ export function AdminTracksPage({ onBackToHome, onNavigateToRegister }: AdminTra
                         style={{ display: 'none' }}
                         onChange={handleAlbumCoverUpload}
                       />
-                      {uploadingAlbumCover ? 'Загрузка обложки…' : 'Выбрать файл обложки с устройства'}
+                      {uploadingAlbumCover ? 'Загрузка обложки…' : 'Загрузить файл'}
                     </label>
                   </div>
                 </div>
@@ -2463,7 +2472,7 @@ export function AdminTracksPage({ onBackToHome, onNavigateToRegister }: AdminTra
                 className="admin-save-primary-btn"
                 disabled={loadingSave || !manualAlbumTitle.trim() || !manualAlbumArtist.trim()}
               >
-                {loadingSave ? 'Сохранение…' : 'Сохранить альбом в базу данных'}
+                {loadingSave ? 'Сохранение…' : 'Сохранить альбом'}
               </button>
             </form>
           </div>
@@ -2473,12 +2482,6 @@ export function AdminTracksPage({ onBackToHome, onNavigateToRegister }: AdminTra
         {creationMode === 'scene' && (
           <div className="admin-card admin-scene-panel">
             <div className="admin-scene-header">
-              <div>
-                <h2 className="admin-card-title">Управление 3D Сценой</h2>
-                <p className="admin-card-desc">
-                  Настройте 12 слотов кругового колеса 3D сцены: загружайте свои фото и обложки, меняйте названия и исполнителей или выбирайте созданные релизы. Изменения мгновенно применяются в 3D сцене.
-                </p>
-              </div>
               <div className="admin-scene-subtabs">
                 <button
                   type="button"
@@ -2701,44 +2704,71 @@ export function AdminTracksPage({ onBackToHome, onNavigateToRegister }: AdminTra
           </div>
         )}
 
-        <section className="admin-list-section" aria-labelledby="admin-list-title">
+        {creationMode === 'catalog' && (
+        <section className="admin-list-section" aria-label="Каталог релизов">
           <div className="admin-list-header">
-            <h2 id="admin-list-title" className="admin-list-title">
-              Релизы в базе данных ({albums.length + tracks.length})
-            </h2>
             <div className="admin-tabs" role="tablist">
               <button
                 type="button"
+                role="tab"
+                aria-selected={activeTab === 'all'}
                 className={`admin-tab${activeTab === 'all' ? ' is-active' : ''}`}
                 onClick={() => setActiveTab('all')}
               >
-                Все ({albums.length + tracks.length})
+                Все <span className="admin-tab-count">{albums.length + tracks.length}</span>
               </button>
               <button
                 type="button"
+                role="tab"
+                aria-selected={activeTab === 'albums'}
                 className={`admin-tab${activeTab === 'albums' ? ' is-active' : ''}`}
                 onClick={() => setActiveTab('albums')}
               >
-                Альбомы ({albums.length})
+                Альбомы <span className="admin-tab-count">{albums.length}</span>
               </button>
               <button
                 type="button"
+                role="tab"
+                aria-selected={activeTab === 'tracks'}
                 className={`admin-tab${activeTab === 'tracks' ? ' is-active' : ''}`}
                 onClick={() => setActiveTab('tracks')}
               >
-                Треки ({tracks.length})
+                Треки <span className="admin-tab-count">{tracks.length}</span>
               </button>
             </div>
+            <label className="admin-search">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+                <circle cx="11" cy="11" r="7" />
+                <path d="m20 20-3.5-3.5" />
+              </svg>
+              <input
+                type="search"
+                value={catalogQuery}
+                onChange={e => setCatalogQuery(e.target.value)}
+                placeholder="Название или исполнитель"
+                aria-label="Поиск по каталогу"
+              />
+            </label>
           </div>
 
           {albums.length === 0 && tracks.length === 0 ? (
             <div className="admin-empty-state">
-              База данных сейчас пуста. Добавьте первый трек или альбом вручную или по ссылке выше!
+              <p>В каталоге пока нет релизов.</p>
+              <button type="button" className="admin-empty-action" onClick={() => setCreationMode('link')}>
+                Импортировать по ссылке
+              </button>
+            </div>
+          ) : visibleAlbums.length + visibleTracks.length === 0 ? (
+            <div className="admin-empty-state">
+              <p>По запросу «{catalogQuery}» ничего не найдено.</p>
+              <button type="button" className="admin-empty-action" onClick={() => setCatalogQuery('')}>
+                Сбросить поиск
+              </button>
             </div>
           ) : (
             <div className="admin-tracks-grid">
               {(activeTab === 'all' || activeTab === 'albums') &&
-                albums.map(album => (
+                visibleAlbums.map(album => (
                   <AdminAlbumItem
                     key={album.id}
                     album={album}
@@ -2748,7 +2778,7 @@ export function AdminTracksPage({ onBackToHome, onNavigateToRegister }: AdminTra
                 ))}
 
               {(activeTab === 'all' || activeTab === 'tracks') &&
-                tracks.map(track => (
+                visibleTracks.map(track => (
                   <AdminTrackItem
                     key={track.id}
                     track={track}
@@ -2759,6 +2789,8 @@ export function AdminTracksPage({ onBackToHome, onNavigateToRegister }: AdminTra
             </div>
           )}
         </section>
+        )}
+        </div>
       </div>
 
       {/* Edit Release Modal */}

@@ -1,5 +1,6 @@
-import { Body, Controller, Get, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Post, Query, UseGuards } from '@nestjs/common';
 import { AudioService } from './audio.service';
+import { AdminGuard } from '../auth/admin.guard';
 
 @Controller('audio')
 export class AudioController {
@@ -16,7 +17,9 @@ export class AudioController {
     return result ?? { synced: null, plain: null, source: null };
   }
 
+  // Ручное сохранение текста — только администратор (раньше эндпоинт был открыт всем)
   @Post('lyrics')
+  @UseGuards(AdminGuard)
   saveLyrics(@Body() body: { artist: string; title: string; synced?: string; plain?: string }) {
     return this.audioService.saveLyrics({
       artist: body.artist,

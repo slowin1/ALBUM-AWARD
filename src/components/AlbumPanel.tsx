@@ -60,7 +60,7 @@ export function AlbumPanel({ album, onClose }: AlbumPanelProps) {
       aria-describedby={descriptionId}
     >
       <div className="album-panel-topline">
-        <span className="album-panel-eyebrow" id={descriptionId}>Демо-голосование</span>
+        <span className="album-panel-eyebrow" id={descriptionId}>Голосование · Альбом года</span>
         <button
           className="album-panel-close"
           ref={closeRef}
@@ -88,7 +88,8 @@ export function AlbumPanel({ album, onClose }: AlbumPanelProps) {
         <button
           className={`album-panel-vote${isChosen ? ' album-panel-vote-chosen' : ''}`}
           type="button"
-          onClick={() => vote.choose(isChosen ? null : album.id)}
+          onClick={() => void vote.choose(isChosen ? null : album.id)}
+          disabled={vote.saving}
           aria-pressed={isChosen}
         >
           {isChosen ? 'Отменить выбор' : vote.albumId ? 'Изменить выбор' : 'Голосовать'}
@@ -101,17 +102,19 @@ export function AlbumPanel({ album, onClose }: AlbumPanelProps) {
       </div>
 
       <p className="album-panel-status" role="status" aria-live="polite" aria-atomic="true">
-        {isChosen
-          ? vote.persistent
-            ? 'Твой выбор сохранён на этом устройстве'
-            : 'Выбор сохранён только до перезагрузки страницы'
-          : !vote.persistent
-            ? 'Память устройства недоступна. Изменения выбора действуют до перезагрузки.'
-            : vote.albumId
-              ? 'Можно выбрать один альбом. Новый выбор заменит предыдущий.'
-              : vote.choiceCleared
-                ? 'Выбор отменён. Можно выбрать другой альбом.'
-                : 'Один альбом — один выбор на этом устройстве.'}
+        {vote.error
+          ? vote.error
+          : vote.needsAuth
+            ? 'Войди в аккаунт, чтобы проголосовать.'
+            : vote.saving
+              ? 'Сохраняем голос…'
+              : isChosen
+                ? 'Твой голос сохранён в аккаунте'
+                : vote.albumId
+                  ? 'Можно выбрать один альбом. Новый выбор заменит предыдущий.'
+                  : vote.choiceCleared
+                    ? 'Выбор отменён. Можно выбрать другой альбом.'
+                    : 'Один альбом — один голос в аккаунте.'}
       </p>
     </section>
   )

@@ -17,6 +17,28 @@ export class ReviewsService {
     return Math.round(avg10 * 10 * 10) / 10; // 0 to 100 with 1 decimal
   }
 
+  /**
+   * Связывает рецензию с реальной записью каталога: targetId может быть id альбома/трека,
+   * `track:<id>` или id слота сцены (`slot-album-N`, `slot-track-N`).
+   */
+  private async resolveTarget(targetId: string): Promise<{ albumId: string | null; trackId: string | null }> {
+    const bare = targetId.replace(/^(track|album|month-artist):/, '');
+    const slot = bare.match(/^slot-(album|track)-(\d+)$/);
+    if (slot) {
+      const row = await this.prisma.sceneSlot.findUnique({
+        where: { type_slotIndex: { type: slot[1], slotIndex: Number(slot[2]) - 1 } },
+        select: { albumId: true, trackId: true },
+      });
+      return { albumId: row?.albumId ?? null, trackId: row?.trackId ?? null };
+    }
+    if (targetId.startsWith('month-artist:')) return { albumId: null, trackId: null };
+    const [album, track] = await Promise.all([
+      targetId.startsWith('track:') ? null : this.prisma.album.findUnique({ where: { id: bare }, select: { id: true } }),
+      targetId.startsWith('album:') ? null : this.prisma.track.findUnique({ where: { id: bare }, select: { id: true } }),
+    ]);
+    return { albumId: album?.id ?? null, trackId: track?.id ?? null };
+  }
+
   async saveReview(userId: string, dto: SaveReviewDto) {
     const targetId = (dto.targetId ?? '').trim();
     const text = (dto.text ?? '').trim();
@@ -36,6 +58,8 @@ export class ReviewsService {
     const atmosphereScore = Math.max(0, Math.min(10, Math.round(Number(dto.scores?.atmosphere ?? 5))));
     const totalScore = this.calculateTotalScore(dto.scores);
 
+    const links = await this.resolveTarget(targetId);
+
     const review = await this.prisma.review.upsert({
       where: {
         userId_targetId: {
@@ -46,6 +70,8 @@ export class ReviewsService {
       create: {
         userId,
         targetId,
+        albumId: links.albumId,
+        trackId: links.trackId,
         targetType: dto.targetType || (targetId.startsWith('track:') ? 'track' : targetId.startsWith('month-artist:') ? 'artist' : 'album'),
         title,
         text,
@@ -61,6 +87,8 @@ export class ReviewsService {
         itemYear: dto.itemYear ? Number(dto.itemYear) : null,
       },
       update: {
+        albumId: links.albumId,
+        trackId: links.trackId,
         title,
         text,
         rhymesScore,
@@ -146,5 +174,30 @@ export class ReviewsService {
       },
       orderBy: { createdAt: 'desc' },
     });
+  }
+
+  /** Лайк / снятие лайка с рецензии (переключатель). Счётчик пересчитывается из таблицы лайков. */
+  async toggleLike(userId: string, reviewId: string) {
+    const review = await this.prisma.review.findUnique({ where: { id: reviewId }, select: { id: true, userId: true } });
+    if (!review) throw new NotFoundException('Рецензия не найдена');
+    
+
+    const existing = await this.prisma.reviewLike.findUnique({
+      where: { userId_reviewId: { userId, reviewId } },
+      select: { id: true },
+    });
+    if (existing) {
+      await this.prisma.reviewLike.delete({ where: { id: existing.id } });
+    } else {
+      await this.prisma.reviewLike.create({ data: { userId, reviewId } });
+    }
+    const likesCount = await this.prisma.reviewLike.count({ where: { reviewId } });
+    await this.prisma.review.update({ where: { id: reviewId }, data: { likesCount } });
+    return { liked: !existing, likesCount };
+  }
+
+  async getMyLikedReviewIds(userId: string) {
+    const likes = await this.prisma.reviewLike.findMany({ where: { userId }, select: { reviewId: true } });
+    return likes.map(l => l.reviewId);
   }
 }

@@ -1,6 +1,6 @@
 import { useEffect, useState, useSyncExternalStore } from 'react'
 import type { AlbumDefinition } from '../data/albums'
-import { allAlbums, allTracks, registerCustomSoundcloudTrack } from '../data/artists'
+import { allAlbums, allTracks } from '../data/artists'
 import type { TrackDefinition } from '../data/tracks'
 import {
   loadAndPlaySoundCloudTrack,
@@ -68,29 +68,13 @@ type ItunesSongResult = {
   trackTimeMillis?: number
 }
 
-const VOLUME_STORAGE_KEY = 'aa_player_volume_v1'
-const SESSION_AUDIO_CACHE_KEY = 'aa_itunes_audio_cache_v1'
 
 function readInitialVolume(): { volume: number; muted: boolean } {
-  try {
-    const raw = localStorage.getItem(VOLUME_STORAGE_KEY)
-    if (!raw) return { volume: 0.8, muted: false }
-    const parsed = JSON.parse(raw) as { volume?: number; muted?: boolean }
-    const vol = typeof parsed.volume === 'number' && Number.isFinite(parsed.volume)
-      ? Math.min(1, Math.max(0, parsed.volume))
-      : 0.8
-    return { volume: vol, muted: Boolean(parsed.muted) }
-  } catch {
-    return { volume: 0.8, muted: false }
-  }
+  return { volume: 0.8, muted: false }
 }
 
-function saveVolumePrefs(volume: number, muted: boolean) {
-  try {
-    localStorage.setItem(VOLUME_STORAGE_KEY, JSON.stringify({ volume, muted }))
-  } catch {
-    // Ignore storage quota errors
-  }
+function saveVolumePrefs(_volume: number, _muted: boolean) {
+  // громкость не сохраняется между сессиями
 }
 
 const resolvedTrackCache = new Map<string, { url: string; isPreview: boolean; appleSongId?: string }>()
@@ -99,33 +83,8 @@ const itunesLookupCache = new Map<string, Promise<ItunesSongResult[]>>()
 const albumTracksCache = new Map<string, Promise<PlayableTrack[]>>()
 const albumTracksResolvedSync = new Map<string, PlayableTrack[]>()
 
-try {
-  const cachedRaw = sessionStorage.getItem(SESSION_AUDIO_CACHE_KEY)
-  if (cachedRaw) {
-    const entries = JSON.parse(cachedRaw) as Record<
-      string,
-      { url: string; isPreview: boolean; appleSongId?: string }
-    >
-    for (const [k, v] of Object.entries(entries)) {
-      if (v && typeof v.url === 'string' && v.url) {
-        resolvedTrackCache.set(k, v)
-      }
-    }
-  }
-} catch {
-  // Ignore sessionStorage errors
-}
-
 function persistResolvedTrackCache() {
-  try {
-    const obj: Record<string, { url: string; isPreview: boolean; appleSongId?: string }> = {}
-    for (const [k, v] of resolvedTrackCache.entries()) {
-      obj[k] = v
-    }
-    sessionStorage.setItem(SESSION_AUDIO_CACHE_KEY, JSON.stringify(obj))
-  } catch {
-    // Ignore sessionStorage quota errors
-  }
+  // кэш ссылок хранится только в памяти
 }
 
 function normalizeMatchText(value: string): string {
@@ -461,19 +420,6 @@ export function resolveAlbumTracks(album: AlbumDefinition): Promise<PlayableTrac
           const data = await res.json()
           if (data.type === 'album' && Array.isArray(data.tracks) && data.tracks.length > 0) {
             album.tracks = data.tracks
-            data.tracks.forEach((t: any, idx: number) => {
-              registerCustomSoundcloudTrack({
-                id: t.id || `${album.id}-trk-${idx + 1}`,
-                albumId: album.id,
-                title: t.title,
-                albumTitle: album.title,
-                artist: t.artist || album.artist,
-                cover: t.cover || album.cover,
-                duration: t.duration || '3:30',
-                soundcloudUrl: t.soundcloudUrl || album.soundcloudUrl!,
-                soundcloudTrackId: t.soundcloudTrackId,
-              })
-            })
             const mapped: PlayableTrack[] = data.tracks.map((t: any, idx: number) => ({
               uid: `album-song:${album.id}:${t.id || idx + 1}`,
               groupKey: `album:${album.id}`,

@@ -1,105 +1,98 @@
 import { useSyncExternalStore } from 'react'
+import { getAuthToken } from './useAuth'
 
-const VOTE_STORAGE_KEY = 'album-awards-demo-vote'
+/** Голосование «Альбом года». Голос хранится на сервере (таблица Vote), а не в браузере. */
+const CATEGORY = 'album_of_the_year'
 
 type VoteSnapshot = {
   albumId: string | null
+  /** true — голос сохранён на сервере. */
   persistent: boolean
   choiceCleared: boolean
+  /** Нужна авторизация, чтобы голосовать. */
+  needsAuth: boolean
+  saving: boolean
+  error: string | null
 }
 
 const serverSnapshot: VoteSnapshot = {
   albumId: null,
-  persistent: false,
+  persistent: true,
   choiceCleared: false,
+  needsAuth: false,
+  saving: false,
+  error: null,
 }
 
 let snapshot = serverSnapshot
-let initialized = false
-let sessionOnly = false
 const listeners = new Set<() => void>()
 
-function publish(next: VoteSnapshot) {
-  if (
-    snapshot.albumId === next.albumId &&
-    snapshot.persistent === next.persistent &&
-    snapshot.choiceCleared === next.choiceCleared
-  ) return
-
-  snapshot = next
+function publish(patch: Partial<VoteSnapshot>) {
+  snapshot = { ...snapshot, ...patch }
   for (const listener of listeners) listener()
 }
 
-function refresh(resetNotice = false) {
-  if (typeof window === 'undefined' || sessionOnly) return
+function authHeaders(): Record<string, string> {
+  const token = getAuthToken()
+  return token ? { Authorization: `Bearer ${token}` } : {}
+}
 
+async function refresh() {
+  if (!getAuthToken()) {
+    publish({ albumId: null, needsAuth: false, error: null })
+    return
+  }
   try {
-    const albumId = window.localStorage.getItem(VOTE_STORAGE_KEY)
-    publish({
-      albumId,
-      persistent: true,
-      choiceCleared: !resetNotice && albumId === snapshot.albumId && snapshot.choiceCleared,
-    })
+    const res = await fetch('/api/votes/my', { headers: authHeaders() })
+    if (!res.ok) throw new Error(String(res.status))
+    const votes: Array<{ category: string; targetId: string }> = await res.json()
+    const mine = votes.find(v => v.category === CATEGORY)
+    publish({ albumId: mine?.targetId ?? null, persistent: true, needsAuth: false, error: null })
   } catch {
-    // Keep the in-memory choice if storage is blocked or becomes unavailable.
-    sessionOnly = true
-    publish({ ...snapshot, persistent: false })
+    publish({ error: 'Не удалось загрузить твой голос', persistent: false })
   }
 }
 
 function getSnapshot() {
-  if (!initialized) {
-    initialized = true
-    refresh()
-  }
   return snapshot
-}
-
-function syncStorage(event: StorageEvent) {
-  if (event.key !== VOTE_STORAGE_KEY && event.key !== null) return
-  try {
-    if (event.storageArea && event.storageArea !== window.localStorage) return
-  } catch {
-    sessionOnly = true
-    publish({ ...snapshot, persistent: false })
-    return
-  }
-  refresh(true)
 }
 
 function subscribe(listener: () => void) {
   listeners.add(listener)
-  if (listeners.size === 1 && typeof window !== 'undefined') {
-    window.addEventListener('storage', syncStorage)
-    // Another tab may have changed its vote while this UI was unmounted.
-    refresh()
-  }
-
+  if (listeners.size === 1) void refresh()
   return () => {
     listeners.delete(listener)
-    if (listeners.size === 0 && typeof window !== 'undefined') {
-      window.removeEventListener('storage', syncStorage)
-    }
   }
 }
 
-function choose(albumId: string | null) {
-  initialized = true
-  let persistent = false
-
+async function choose(albumId: string | null) {
+  if (!getAuthToken()) {
+    publish({ needsAuth: true })
+    return
+  }
+  publish({ saving: true, error: null, needsAuth: false })
   try {
-    if (albumId === null) window.localStorage.removeItem(VOTE_STORAGE_KEY)
-    else window.localStorage.setItem(VOTE_STORAGE_KEY, albumId)
-    persistent = true
+    const res =
+      albumId === null
+        ? await fetch(`/api/votes/${CATEGORY}`, { method: 'DELETE', headers: authHeaders() })
+        : await fetch('/api/votes', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...authHeaders() },
+            body: JSON.stringify({ category: CATEGORY, targetId: albumId }),
+          })
+    if (res.status === 401) {
+      publish({ saving: false, needsAuth: true })
+      return
+    }
+    // 404 при снятии означает, что голоса уже нет — состояние всё равно верное
+    if (!res.ok && !(albumId === null && res.status === 404)) throw new Error(String(res.status))
+    publish({ albumId, persistent: true, choiceCleared: albumId === null, saving: false })
   } catch {
-    // The choice still works in this session when browser storage is blocked.
+    publish({ saving: false, error: 'Не удалось сохранить голос. Попробуй ещё раз.' })
   }
-
-  sessionOnly = !persistent
-  publish({ albumId, persistent, choiceCleared: albumId === null })
 }
 
-/** A single local demo choice, shared by all mounted voting controls. */
+/** Один голос пользователя в категории, общий для всех смонтированных элементов управления. */
 export function useDemoVote() {
   const vote = useSyncExternalStore(subscribe, getSnapshot, () => serverSnapshot)
   return { ...vote, choose }

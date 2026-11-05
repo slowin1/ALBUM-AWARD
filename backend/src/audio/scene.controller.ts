@@ -1,65 +1,62 @@
 import { Body, Controller, Get, Post, HttpStatus, HttpException, UseGuards } from '@nestjs/common';
-import { AudioService } from './audio.service';
+import { SceneService, SceneType, SCENE_SLOTS } from './scene.service';
 import { AdminGuard } from '../auth/admin.guard';
 
 @Controller('scene')
 export class SceneController {
-  constructor(private readonly audioService: AudioService) {}
+  constructor(private readonly scene: SceneService) {}
 
   @Get('albums')
   getSceneAlbums() {
-    return this.audioService.getSceneAlbums();
+    return this.scene.getSlots('album');
   }
 
   @Post('albums')
   @UseGuards(AdminGuard)
-  saveSceneAlbums(@Body() body: { albums: any[] }) {
+  async saveSceneAlbums(@Body() body: { albums: any[] }) {
     if (!Array.isArray(body?.albums)) {
       throw new HttpException('albums array required', HttpStatus.BAD_REQUEST);
     }
-    return this.audioService.saveSceneAlbums(body.albums);
+    return { success: true, albums: await this.scene.saveSlots('album', body.albums) };
   }
 
   @Get('tracks')
   getSceneTracks() {
-    return this.audioService.getSceneTracks();
+    return this.scene.getSlots('track');
   }
 
   @Post('tracks')
   @UseGuards(AdminGuard)
-  saveSceneTracks(@Body() body: { tracks: any[] }) {
+  async saveSceneTracks(@Body() body: { tracks: any[] }) {
     if (!Array.isArray(body?.tracks)) {
       throw new HttpException('tracks array required', HttpStatus.BAD_REQUEST);
     }
-    return this.audioService.saveSceneTracks(body.tracks);
+    return { success: true, tracks: await this.scene.saveSlots('track', body.tracks) };
   }
 
   @Get('artists')
   getSceneArtists() {
-    return this.audioService.getSceneArtists();
+    return this.scene.getSlots('artist');
   }
 
   @Post('artists')
   @UseGuards(AdminGuard)
-  saveSceneArtists(@Body() body: { artists: any[] }) {
+  async saveSceneArtists(@Body() body: { artists: any[] }) {
     if (!Array.isArray(body?.artists)) {
       throw new HttpException('artists array required', HttpStatus.BAD_REQUEST);
     }
-    return this.audioService.saveSceneArtists(body.artists);
+    return { success: true, artists: await this.scene.saveSlots('artist', body.artists) };
   }
 
   @Post('slot')
   @UseGuards(AdminGuard)
-  updateSlot(@Body() body: { type: 'album' | 'track' | 'artist'; slotIndex: number; data: any }) {
-    if (body.slotIndex < 0 || body.slotIndex >= 12 || !body.data) {
-      throw new HttpException('Valid slotIndex (0-11) and data required', HttpStatus.BAD_REQUEST);
+  async updateSlot(@Body() body: { type: SceneType; slotIndex: number; data: any }) {
+    if (!['album', 'track', 'artist'].includes(body?.type)) {
+      throw new HttpException('type must be album | track | artist', HttpStatus.BAD_REQUEST);
     }
-    if (body.type === 'album') {
-      return this.audioService.updateSceneAlbumSlot(body.slotIndex, body.data);
-    } else if (body.type === 'artist') {
-      return this.audioService.updateSceneArtistSlot(body.slotIndex, body.data);
-    } else {
-      return this.audioService.updateSceneTrackSlot(body.slotIndex, body.data);
+    if (!Number.isInteger(body.slotIndex) || body.slotIndex < 0 || body.slotIndex >= SCENE_SLOTS || !body.data) {
+      throw new HttpException(`Valid slotIndex (0-${SCENE_SLOTS - 1}) and data required`, HttpStatus.BAD_REQUEST);
     }
+    return { success: true, slot: await this.scene.updateSlot(body.type, body.slotIndex, body.data) };
   }
 }

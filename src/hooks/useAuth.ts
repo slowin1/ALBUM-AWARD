@@ -43,42 +43,10 @@ export type UserProfile = {
   preferences?: UserPreferences
 }
 
-const STORAGE_KEY = 'album-awards-auth-v1'
-
 type Snapshot = { user: UserProfile | null }
 const serverSnapshot: Snapshot = { user: null }
 let snapshot: Snapshot = serverSnapshot
-let initialized = false
 const listeners = new Set<() => void>()
-
-function readStorage(): UserProfile | null {
-  if (typeof window === 'undefined') return null
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY)
-    if (!raw) return null
-    const parsed = JSON.parse(raw)
-    if (parsed && typeof parsed.nickname === 'string' && typeof parsed.email === 'string') {
-      return {
-        id: typeof parsed.id === 'string' ? parsed.id : undefined,
-        nickname: parsed.nickname.trim(),
-        email: parsed.email.trim(),
-        role: typeof parsed.role === 'string' ? parsed.role : 'user',
-        provider: parsed.provider || 'email',
-        registeredAt: parsed.registeredAt || new Date().toISOString(),
-        bio: typeof parsed.bio === 'string' ? parsed.bio : '',
-        avatarSymbol: typeof parsed.avatarSymbol === 'string' ? parsed.avatarSymbol : '',
-        avatarUrl: typeof parsed.avatarUrl === 'string' ? parsed.avatarUrl : '',
-        favoriteGenre: typeof parsed.favoriteGenre === 'string' ? parsed.favoriteGenre : '',
-        preferences: parsed.preferences && typeof parsed.preferences === 'object' && Array.isArray(parsed.preferences.artists)
-          ? parsed.preferences
-          : getDefaultPreferences(),
-      }
-    }
-  } catch {
-    // Ignore corrupt storage
-  }
-  return null
-}
 
 function publish(user: UserProfile | null) {
   snapshot = { user }
@@ -86,48 +54,28 @@ function publish(user: UserProfile | null) {
 }
 
 function getSnapshot() {
-  if (!initialized) {
-    initialized = true
-    snapshot = { user: readStorage() }
-  }
   return snapshot
-}
-
-function syncStorage(event: StorageEvent) {
-  if (event.key !== STORAGE_KEY && event.key !== null) return
-  publish(readStorage())
 }
 
 function subscribe(listener: () => void) {
   listeners.add(listener)
-  if (listeners.size === 1 && typeof window !== 'undefined') {
-    window.addEventListener('storage', syncStorage)
-  }
   return () => {
     listeners.delete(listener)
-    if (listeners.size === 0 && typeof window !== 'undefined') {
-      window.removeEventListener('storage', syncStorage)
-    }
   }
 }
 
-const TOKEN_KEY = 'album-awards-token'
+// Токен живёт только в памяти; между перезагрузками сессию хранит httpOnly-cookie на сервере.
+let memoryToken: string | null = null
 const API_AUTH = '/api/auth'
 
 export function getAuthToken(): string | null {
-  if (typeof window === 'undefined') return null
-  try {
-    return window.localStorage.getItem(TOKEN_KEY)
-  } catch {
-    return null
-  }
+  return memoryToken
 }
 
 export type AuthResult = { ok: true } | { ok: false; error: string }
 
 function saveSession(token: string, user: UserProfile) {
-  window.localStorage.setItem(TOKEN_KEY, token)
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(user))
+  memoryToken = token
   publish(user)
   try {
     window.dispatchEvent(new CustomEvent('aa:auth_login'))
@@ -135,12 +83,8 @@ function saveSession(token: string, user: UserProfile) {
 }
 
 function clearSession() {
-  try {
-    window.localStorage.removeItem(TOKEN_KEY)
-    window.localStorage.removeItem(STORAGE_KEY)
-  } catch {
-    // Ignore
-  }
+  memoryToken = null
+  void fetch(`${API_AUTH}/logout`, { method: 'POST' }).catch(() => {})
   publish(null)
 }
 
@@ -163,29 +107,24 @@ async function authRequest(path: string, body: unknown): Promise<AuthResult> {
   }
 }
 
-// Validate stored token on startup: pull a fresh profile or drop an expired session.
+// Восстанавливаем сессию по cookie при старте: сервер возвращает токен и свежий профиль.
 let sessionChecked = false
 async function verifySession() {
-  if (sessionChecked) return
+  if (sessionChecked || typeof window === 'undefined') return
   sessionChecked = true
-  const token = getAuthToken()
-  if (!token) return
   try {
-    const res = await fetch(`${API_AUTH}/me`, { headers: { Authorization: `Bearer ${token}` } })
-    if (res.status === 401) return clearSession()
-    if (res.ok) {
-      const user = await res.json()
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(user))
-      publish(user)
-    }
+    const res = await fetch(`${API_AUTH}/session`)
+    if (!res.ok) return
+    const data = await res.json()
+    if (data?.token && data?.user) saveSession(data.token, data.user)
   } catch {
-    // Backend offline: keep the cached profile
+    // Бэкенд недоступен — остаёмся гостем
   }
 }
+if (typeof window !== 'undefined') void verifySession()
 
 export function useAuth() {
   const state = useSyncExternalStore(subscribe, getSnapshot, () => serverSnapshot)
-  void verifySession()
 
   function register(nickname: string, email: string, password: string): Promise<AuthResult> {
     return authRequest('register', { nickname, email, password })
@@ -204,7 +143,7 @@ export function useAuth() {
   }
 
   function updateProfile(updates: Partial<UserProfile>) {
-    const current = readStorage()
+    const current = snapshot.user
     if (!current) return false
     const updated: UserProfile = {
       ...current,
@@ -216,12 +155,7 @@ export function useAuth() {
       favoriteGenre: updates.favoriteGenre !== undefined ? updates.favoriteGenre.trim() : current.favoriteGenre,
       preferences: updates.preferences !== undefined ? updates.preferences : (current.preferences ?? getDefaultPreferences()),
     }
-    try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(updated))
-      publish(updated)
-    } catch {
-      return false
-    }
+    publish(updated)
 
     // Sync to the server when signed in with a JWT (best effort; local cache stays the source for the UI).
     const token = getAuthToken()

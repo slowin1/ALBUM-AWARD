@@ -6,7 +6,7 @@ import { Scene } from './scene/Scene'
 import { LOGO_SCROLL_END, SCENE_DEFAULTS, TOTAL_SCROLL_PAGES, WHEEL_SCROLL_START } from './scene/config'
 import { albums } from './data/albums'
 import { tracks } from './data/tracks'
-import { allAlbums, allTracks, artists, getAlbumArtist, getMonthArtist, getTrackArtist } from './data/artists'
+import { allAlbums, allTracks, artists, catalogReady, getAlbumArtist, getMonthArtist, getTrackArtist } from './data/artists'
 import { monthArtists } from './data/monthArtists'
 import { AlbumVotePage } from './components/AlbumVotePage'
 import { TrackVotePage } from './components/TrackVotePage'
@@ -76,7 +76,11 @@ function App() {
  useEffect(() => {
   const onSceneUpdate = () => setSceneVersion(v => v + 1)
   window.addEventListener('aa:scene_updated', onSceneUpdate)
-  return () => window.removeEventListener('aa:scene_updated', onSceneUpdate)
+  window.addEventListener('aa:artists_synced', onSceneUpdate)
+  return () => {
+   window.removeEventListener('aa:scene_updated', onSceneUpdate)
+   window.removeEventListener('aa:artists_synced', onSceneUpdate)
+  }
  }, [])
 
  useEffect(() => {
@@ -636,4 +640,7 @@ function App() {
 // Keep one React/WebGL tree when Vite refreshes this entry during shader work.
 const root: Root = import.meta.hot?.data.reactRoot ?? createRoot(document.getElementById('root')!)
 if (import.meta.hot) import.meta.hot.data.reactRoot = root
-root.render(<StrictMode><App /></StrictMode>)
+// Прямые ссылки на релизы и артистов зависят от каталога с сервера — ждём его (но не дольше 3 с).
+void Promise.race([catalogReady, new Promise<void>(resolve => setTimeout(resolve, 3000))]).then(() => {
+  root.render(<StrictMode><App /></StrictMode>)
+})

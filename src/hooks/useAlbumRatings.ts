@@ -37,8 +37,6 @@ export function calculateAlbumScore(scores: AlbumScores) {
   return Math.round(scoreOutOf100 * 10) / 10
 }
 
-// Keep the existing key; the envelope version identifies the criterion scale.
-const STORAGE_KEY = 'album-awards-ratings-v1'
 const MAX_TITLE_LENGTH = 120
 const MAX_REVIEW_LENGTH = 1500
 type Ratings = Record<string, AlbumScores>
@@ -51,9 +49,6 @@ const serverSnapshot: Snapshot = { ratings: emptyRatings(), reviews: emptyReview
 let snapshot = serverSnapshot
 let initialized = false
 const listeners = new Set<() => void>()
-// Unsaved changes survive remounts and are merged when storage becomes available.
-const pending = new Map<string, AlbumScores | null>()
-const pendingReviews = new Map<string, AlbumReview | null>()
 
 function normalizeScores(value: unknown, legacyScale = false): AlbumScores | null {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return null
@@ -87,54 +82,12 @@ function normalizeReviewEntry(value: unknown): AlbumReview | null {
   return Object.freeze({ title, text })
 }
 
-function readStorage(raw: string | null): { ratings: Ratings; reviews: Reviews } {
-  const ratings = emptyRatings()
-  const reviews = emptyReviews()
-  if (raw === null) return { ratings, reviews }
-
-  try {
-    const parsed: unknown = JSON.parse(raw)
-    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return { ratings, reviews }
-    const envelope = parsed as Record<string, unknown>
-    if (envelope.version !== 1 && envelope.version !== 2) return { ratings, reviews }
-    const entries = envelope.ratings
-    if (typeof entries === 'object' && entries !== null && !Array.isArray(entries)) {
-      for (const [albumId, value] of Object.entries(entries)) {
-        if (albumId.length === 0) continue
-        const scores = normalizeScores(value, envelope.version === 1)
-        if (scores !== null) ratings[albumId] = scores
-      }
-    }
-    const rawReviews = envelope.reviews
-    if (typeof rawReviews === 'object' && rawReviews !== null && !Array.isArray(rawReviews)) {
-      for (const [albumId, entry] of Object.entries(rawReviews)) {
-        if (albumId.length === 0) continue
-        const normalized = normalizeReviewEntry(entry)
-        if (normalized !== null) reviews[albumId] = normalized
-      }
-    }
-  } catch {
-    // An outdated or damaged payload must not prevent a new local rating.
-  }
-  return { ratings, reviews }
-}
-
 function withPending(ratings: Ratings): Ratings {
-  const next = Object.assign(emptyRatings(), ratings)
-  for (const [albumId, scores] of pending) {
-    if (scores === null) delete next[albumId]
-    else next[albumId] = scores
-  }
-  return next
+  return Object.assign(emptyRatings(), ratings)
 }
 
 function withPendingReviews(reviews: Reviews): Reviews {
-  const next = Object.assign(emptyReviews(), reviews)
-  for (const [albumId, entry] of pendingReviews) {
-    if (!entry) delete next[albumId]
-    else next[albumId] = entry
-  }
-  return next
+  return Object.assign(emptyReviews(), reviews)
 }
 
 function sameScores(left: AlbumScores, right: AlbumScores) {
@@ -168,49 +121,14 @@ function publish(ratings: Ratings, reviews: Reviews, persistent: boolean) {
   for (const listener of listeners) listener()
 }
 
-function refresh() {
-  if (typeof window === 'undefined') return
-  try {
-    const stored = readStorage(window.localStorage.getItem(STORAGE_KEY))
-    const ratings = withPending(stored.ratings)
-    const reviews = withPendingReviews(stored.reviews)
-    publish(ratings, reviews, pending.size === 0 && pendingReviews.size === 0)
-  } catch {
-    publish(snapshot.ratings, snapshot.reviews, false)
-  }
-}
-
 function getSnapshot() {
-  if (!initialized) {
-    initialized = true
-    refresh()
-  }
   return snapshot
-}
-
-function syncStorage(event: StorageEvent) {
-  if (event.key !== STORAGE_KEY && event.key !== null) return
-  try {
-    if (event.storageArea && event.storageArea !== window.localStorage) return
-  } catch {
-    publish(snapshot.ratings, snapshot.reviews, false)
-    return
-  }
-  refresh()
 }
 
 function subscribe(listener: () => void) {
   listeners.add(listener)
-  if (listeners.size === 1 && typeof window !== 'undefined') {
-    window.addEventListener('storage', syncStorage)
-    // Refresh changes from another tab while all voting forms were unmounted.
-    refresh()
-  }
   return () => {
     listeners.delete(listener)
-    if (listeners.size === 0 && typeof window !== 'undefined') {
-      window.removeEventListener('storage', syncStorage)
-    }
   }
 }
 
@@ -221,44 +139,17 @@ function update(
   metadata?: ReviewItemMetadata,
 ) {
   if (albumId.length === 0) return
-  getSnapshot()
-  let ratings = withPending(snapshot.ratings)
-  let reviews = withPendingReviews(snapshot.reviews)
-
-  try {
-    // Read before writing so ratings saved in another tab are retained.
-    const stored = readStorage(window.localStorage.getItem(STORAGE_KEY))
-    ratings = withPending(stored.ratings)
-    reviews = withPendingReviews(stored.reviews)
-
-    if (scores === null || reviewEntry === null) {
-      delete ratings[albumId]
-      delete reviews[albumId]
-    } else {
-      ratings[albumId] = scores
-      reviews[albumId] = reviewEntry
-    }
-
-    if (Object.keys(ratings).length === 0 && Object.keys(reviews).length === 0) {
-      window.localStorage.removeItem(STORAGE_KEY)
-    } else {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: 2, ratings, reviews }))
-    }
-    pending.clear()
-    pendingReviews.clear()
-    publish(ratings, reviews, true)
-  } catch {
-    pending.set(albumId, scores)
-    pendingReviews.set(albumId, reviewEntry)
-    if (scores === null || reviewEntry === null) {
-      delete ratings[albumId]
-      delete reviews[albumId]
-    } else {
-      ratings[albumId] = scores
-      reviews[albumId] = reviewEntry
-    }
-    publish(ratings, reviews, false)
+  const ratings = withPending(snapshot.ratings)
+  const reviews = withPendingReviews(snapshot.reviews)
+  if (scores === null || reviewEntry === null) {
+    delete ratings[albumId]
+    delete reviews[albumId]
+  } else {
+    ratings[albumId] = scores
+    reviews[albumId] = reviewEntry
   }
+  // Без входа оценка живёт только в памяти страницы (persistent = false), с входом — сохраняется в БД.
+  publish(ratings, reviews, Boolean(getAuthToken()))
 
   // Синхронизация с базой данных PostgreSQL при наличии авторизации
   const token = getAuthToken()
@@ -304,10 +195,8 @@ export async function syncReviewsFromBackend() {
     const dbReviews: any[] = await res.json()
     if (!Array.isArray(dbReviews)) return
 
-    getSnapshot()
-    const stored = readStorage(window.localStorage.getItem(STORAGE_KEY))
-    const ratings = withPending(stored.ratings)
-    const reviews = withPendingReviews(stored.reviews)
+    const ratings = emptyRatings()
+    const reviews = emptyReviews()
 
     for (const r of dbReviews) {
       const targetId = r.targetId
@@ -325,9 +214,6 @@ export async function syncReviewsFromBackend() {
       }
     }
 
-    try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: 2, ratings, reviews }))
-    } catch {}
     publish(ratings, reviews, true)
   } catch {
     // Best effort background sync
@@ -398,14 +284,16 @@ export function useAllUserRatings() {
   const averageScore = ratingsCount > 0 ? Math.round((totalScoreSum / ratingsCount) * 10) / 10 : 0
 
   function clearAll() {
-    try {
-      window.localStorage.removeItem(STORAGE_KEY)
-      pending.clear()
-      pendingReviews.clear()
-      publish(emptyRatings(), emptyReviews(), true)
-    } catch {
-      // ignore
+    const token = getAuthToken()
+    for (const id of Object.keys(state.ratings)) {
+      if (token) {
+        fetch(`/api/reviews/${encodeURIComponent(id)}`, {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${token}` },
+        }).catch(() => {})
+      }
     }
+    publish(emptyRatings(), emptyReviews(), Boolean(token))
   }
 
   return {

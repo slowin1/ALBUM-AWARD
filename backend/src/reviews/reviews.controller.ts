@@ -38,6 +38,20 @@ export class ReviewsController {
     return this.reviewsService.deleteReview(req.user.id, targetId);
   }
 
+  // Лайкнуть / снять лайк с рецензии
+  @Post(':reviewId/like')
+  @UseGuards(JwtAuthGuard)
+  async toggleLike(@Req() req: any, @Param('reviewId') reviewId: string) {
+    return this.reviewsService.toggleLike(req.user.id, reviewId);
+  }
+
+  // id рецензий, которые лайкнул текущий пользователь
+  @Get('liked/my')
+  @UseGuards(JwtAuthGuard)
+  async getMyLikes(@Req() req: any) {
+    return this.reviewsService.getMyLikedReviewIds(req.user.id);
+  }
+
   // Получить рецензии сообщества на релиз/трек (Публично)
   @Get('target/:targetId')
   async getByTarget(@Param('targetId') targetId: string) {

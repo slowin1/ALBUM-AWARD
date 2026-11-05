@@ -12,7 +12,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { AudioService } from './audio.service';
-import { PrismaService } from '../prisma/prisma.service';
+import { CatalogService } from './catalog.service';
 import { AdminGuard } from '../auth/admin.guard';
 
 export type CustomTrackDto = {
@@ -33,7 +33,7 @@ export type CustomTrackDto = {
 export class TracksController {
   constructor(
     private readonly audioService: AudioService,
-    private readonly prisma: PrismaService,
+    private readonly catalog: CatalogService,
   ) {}
 
   // Parse track or album metadata from SoundCloud or Spotify URL (Администратор)
@@ -70,7 +70,7 @@ export class TracksController {
   // List all custom uploaded / added tracks (Публично для ленты и колеса треков)
   @Get()
   async getTracks() {
-    return this.audioService.getAllCustomTracks();
+    return this.catalog.listSingles();
   }
 
   // Create new track (manually or from URL) (Администратор)
@@ -80,20 +80,20 @@ export class TracksController {
     if (!body.title && !body.soundcloudUrl) {
       throw new HttpException('Title or SoundCloud URL is required', HttpStatus.BAD_REQUEST);
     }
-    return this.audioService.addCustomTrack(body);
+    return this.catalog.createTrack(body as any);
   }
 
   // Update track (Администратор)
   @Put(':id')
   @UseGuards(AdminGuard)
   async updateTrack(@Param('id') id: string, @Body() body: Partial<CustomTrackDto>) {
-    return this.audioService.updateCustomTrack(id, body);
+    return this.catalog.updateTrack(id, body);
   }
 
   // Delete track (Администратор)
   @Delete(':id')
   @UseGuards(AdminGuard)
   async deleteTrack(@Param('id') id: string) {
-    return this.audioService.deleteCustomTrack(id);
+    return this.catalog.deleteTrack(id);
   }
 }

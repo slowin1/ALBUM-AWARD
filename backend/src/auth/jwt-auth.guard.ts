@@ -1,6 +1,7 @@
 import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { getJwtSecret } from './auth.service';
+import { readToken } from './token.util';
 
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
@@ -8,9 +9,8 @@ export class JwtAuthGuard implements CanActivate {
 
   canActivate(context: ExecutionContext): boolean {
     const req = context.switchToHttp().getRequest();
-    const header: string = req.headers['authorization'] ?? '';
-    const [scheme, token] = header.split(' ');
-    if (scheme !== 'Bearer' || !token) {
+    const token = readToken(req);
+    if (!token) {
       throw new UnauthorizedException('Требуется авторизация');
     }
     try {

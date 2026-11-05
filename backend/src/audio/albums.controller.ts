@@ -10,7 +10,8 @@ import {
   HttpException,
   UseGuards,
 } from '@nestjs/common';
-import { AudioService, CustomAlbumTrack } from './audio.service';
+import { CatalogService } from './catalog.service';
+import { CustomAlbumTrack } from './audio.service';
 import { AdminGuard } from '../auth/admin.guard';
 
 export type CustomAlbumDto = {
@@ -27,12 +28,12 @@ export type CustomAlbumDto = {
 
 @Controller('albums')
 export class AlbumsController {
-  constructor(private readonly audioService: AudioService) {}
+  constructor(private readonly catalog: CatalogService) {}
 
-  // List all custom albums (Публично для ленты и колеса альбомов)
+  // List all albums (Публично для ленты и колеса альбомов)
   @Get()
   async getAlbums() {
-    return this.audioService.getAllCustomAlbums();
+    return this.catalog.listAlbums();
   }
 
   // Create album (Администратор)
@@ -42,20 +43,20 @@ export class AlbumsController {
     if (!body.title || !body.artist) {
       throw new HttpException('Title and artist are required', HttpStatus.BAD_REQUEST);
     }
-    return this.audioService.addCustomAlbum(body);
+    return this.catalog.createAlbum(body);
   }
 
   // Update album (Администратор)
   @Put(':id')
   @UseGuards(AdminGuard)
   async updateAlbum(@Param('id') id: string, @Body() body: Partial<CustomAlbumDto>) {
-    return this.audioService.updateCustomAlbum(id, body);
+    return this.catalog.updateAlbum(id, body);
   }
 
   // Delete album (Администратор)
   @Delete(':id')
   @UseGuards(AdminGuard)
   async deleteAlbum(@Param('id') id: string) {
-    return this.audioService.deleteCustomAlbum(id);
+    return this.catalog.deleteAlbum(id);
   }
 }

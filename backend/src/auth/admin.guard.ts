@@ -8,6 +8,7 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
 import { getJwtSecret } from './auth.service';
+import { readToken } from './token.util';
 
 @Injectable()
 export class AdminGuard implements CanActivate {
@@ -18,9 +19,8 @@ export class AdminGuard implements CanActivate {
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const req = context.switchToHttp().getRequest();
-    const header: string = req.headers['authorization'] ?? '';
-    const [scheme, token] = header.split(' ');
-    if (scheme !== 'Bearer' || !token) {
+    const token = readToken(req);
+    if (!token) {
       throw new UnauthorizedException('Требуется авторизация');
     }
 
