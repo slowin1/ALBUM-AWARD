@@ -1,8 +1,9 @@
-import { Injectable, Logger, HttpException, HttpStatus } from '@nestjs/common';
+import { Injectable, Logger, HttpException, HttpStatus, OnModuleInit } from '@nestjs/common';
 import * as https from 'https';
 import * as http from 'http';
 import * as fs from 'fs';
 import * as path from 'path';
+import { PrismaService } from '../prisma/prisma.service';
 
 export type CustomTrack = {
   id: string;
@@ -55,8 +56,47 @@ export type StoredLyrics = {
   updatedAt: string;
 };
 
+function generateSlug(title: string, id: string): string {
+  const translit = (title || id)
+    .toLowerCase()
+    .replace(/[а-яё]/g, char => {
+      const map: Record<string, string> = {
+        а: 'a', б: 'b', в: 'v', г: 'g', д: 'd', е: 'e', ё: 'yo', ж: 'zh', з: 'z', и: 'i',
+        й: 'y', к: 'k', л: 'l', м: 'm', н: 'n', о: 'o', п: 'p', р: 'r', с: 's', т: 't',
+        у: 'u', ф: 'f', х: 'h', ц: 'ts', ч: 'ch', ш: 'sh', щ: 'sch', ъ: '', ы: 'y', ь: '',
+        э: 'e', ю: 'yu', я: 'ya',
+      };
+      return map[char] || char;
+    })
+    .replace(/[^a-z0-9_-]/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+    .slice(0, 40);
+  return `${translit || 'item'}-${id.slice(-6)}`;
+}
+
+export function parseArtists(credit: string, title?: string): string[] {
+  const raw = [credit || ''];
+  if (title) {
+    const featMatch = String(title).match(/(?:\(|\[)\s*(?:feat\.?|ft\.?|with|при уч\.?)\s+([^)\]]+)(?:\)|\])/i);
+    if (featMatch) raw.push(featMatch[1]);
+  }
+  const result: string[] = [];
+  for (const chunk of raw) {
+    const clean = String(chunk).replace(/(?:\(|\[)?(?:feat\.?|ft\.?|with)\s+/gi, ', ');
+    const parts = clean.split(/[,&/×+]/);
+    for (const p of parts) {
+      const name = p.trim().replace(/^[@#]/, '').trim();
+      if (name.length >= 2 && !result.some(r => r.toLowerCase() === name.toLowerCase())) {
+        result.push(name);
+      }
+    }
+  }
+  return result.length > 0 ? result : [String(credit).trim()];
+}
+
 @Injectable()
-export class AudioService {
+export class AudioService implements OnModuleInit {
   private readonly logger = new Logger(AudioService.name);
   private readonly tracksFilePath = path.join(__dirname, '..', '..', 'custom_tracks.json');
   private readonly albumsFilePath = path.join(__dirname, '..', '..', 'custom_albums.json');
@@ -70,9 +110,100 @@ export class AudioService {
   private cachedClientId: string | null = null;
   private lastClientIdTime = 0;
 
-  constructor() {
+  constructor(private readonly prisma: PrismaService) {
     this.loadCustomTracks();
     this.loadCustomAlbums();
+  }
+
+  async onModuleInit() {
+    try {
+      const count = await this.prisma.album.count();
+      if (count === 0) {
+        this.logger.log('Database Album table is empty. Syncing catalog to PostgreSQL...');
+        await this.syncAllToDatabase();
+      }
+    } catch (err) {
+      this.logger.warn(`Could not sync catalog to PostgreSQL: ${err}`);
+    }
+  }
+
+  async ensureArtistByName(name: string, avatarUrl?: string): Promise<{ id: string; name: string; slug: string } | null> {
+    const cleanName = (name || '').trim();
+    if (!cleanName || cleanName.toLowerCase() === 'исполнитель') return null;
+
+    const baseSlug = generateSlug(cleanName, `art-${Date.now()}`);
+
+    const existing = await this.prisma.artist.findFirst({
+      where: {
+        OR: [
+          { name: { equals: cleanName, mode: 'insensitive' } },
+          { slug: baseSlug },
+        ],
+      },
+      select: { id: true, name: true, slug: true },
+    });
+    if (existing) return existing;
+
+    try {
+      return await this.prisma.artist.create({
+        data: {
+          name: cleanName,
+          slug: `${baseSlug}-${Math.floor(100 + Math.random() * 900)}`,
+          avatar: avatarUrl || '/covers/placeholder.jpg',
+        },
+        select: { id: true, name: true, slug: true },
+      });
+    } catch {
+      return this.prisma.artist.findFirst({
+        where: { name: { equals: cleanName, mode: 'insensitive' } },
+        select: { id: true, name: true, slug: true },
+      });
+    }
+  }
+
+  async ensureArtistsForCredit(credit: string, title?: string, avatarUrl?: string): Promise<{ id: string; name: string; slug: string }[]> {
+    const names = parseArtists(credit, title);
+    const artistList: { id: string; name: string; slug: string }[] = [];
+    for (const n of names) {
+      const a = await this.ensureArtistByName(n, avatarUrl);
+      if (a && !artistList.some(item => item.id === a.id)) {
+        artistList.push(a);
+      }
+    }
+    return artistList;
+  }
+
+  async getAllArtists(search?: string) {
+    const where = search
+      ? {
+          OR: [
+            { name: { contains: search, mode: 'insensitive' as const } },
+            { slug: { contains: search, mode: 'insensitive' as const } },
+          ],
+        }
+      : {};
+
+    return this.prisma.artist.findMany({
+      where,
+      orderBy: { name: 'asc' },
+      include: {
+        _count: {
+          select: { tracks: true, albums: true },
+        },
+      },
+    });
+  }
+
+  async getArtistById(idOrSlug: string) {
+    return this.prisma.artist.findFirst({
+      where: {
+        OR: [{ id: idOrSlug }, { slug: idOrSlug }],
+      },
+      include: {
+        tracks: true,
+        albums: { include: { tracks: true } },
+      },
+    });
   }
 
   private loadCustomTracks() {
@@ -119,11 +250,58 @@ export class AudioService {
     }
   }
 
-  getAllCustomTracks(): CustomTrack[] {
+  async getAllCustomTracks(): Promise<CustomTrack[]> {
+    try {
+      const dbTracks = await this.prisma.track.findMany({
+        where: { albumId: null },
+        orderBy: { createdAt: 'desc' },
+      });
+      if (dbTracks.length > 0) {
+        return dbTracks.map(t => ({
+          id: t.id,
+          title: t.title,
+          artist: t.artistDisplay || 'Исполнитель',
+          albumTitle: t.albumTitle || 'Сингл',
+          cover: t.cover,
+          duration: t.duration || '3:30',
+          audioUrl: t.audioUrl || undefined,
+          soundcloudUrl: t.soundcloudUrl || undefined,
+          soundcloudTrackId: t.soundcloudTrackId || undefined,
+          createdAt: t.createdAt.toISOString(),
+        }));
+      }
+    } catch {}
     return this.customTracks;
   }
 
-  getAllCustomAlbums(): CustomAlbum[] {
+  async getAllCustomAlbums(): Promise<CustomAlbum[]> {
+    try {
+      const dbAlbums = await this.prisma.album.findMany({
+        include: { tracks: true },
+        orderBy: { createdAt: 'desc' },
+      });
+      if (dbAlbums.length > 0) {
+        return dbAlbums.map(a => ({
+          id: a.id,
+          title: a.title,
+          artist: a.artistDisplay || 'Исполнитель',
+          cover: a.cover,
+          year: a.year || 2026,
+          soundcloudUrl: a.soundcloudUrl || undefined,
+          soundcloudPlaylistId: a.soundcloudPlaylistId || undefined,
+          tracks: (a.tracks || []).map(t => ({
+            id: t.id,
+            title: t.title,
+            artist: t.artistDisplay || a.artistDisplay || 'Исполнитель',
+            cover: t.cover || a.cover,
+            duration: t.duration || '3:30',
+            soundcloudUrl: t.soundcloudUrl || undefined,
+            soundcloudTrackId: t.soundcloudTrackId || undefined,
+          })),
+          createdAt: a.createdAt.toISOString(),
+        }));
+      }
+    } catch {}
     return this.customAlbums;
   }
 
@@ -336,8 +514,52 @@ export class AudioService {
       createdAt: new Date().toISOString(),
     };
 
+    let artistRecords: { id: string; name: string; slug: string }[] = [];
+    try {
+      artistRecords = await this.ensureArtistsForCredit(artist, title, cover);
+      if (artistRecords.length > 0) {
+        newTrack.artistId = artistRecords[0].id;
+        newTrack.artistIds = artistRecords.map(a => a.id);
+      }
+    } catch (e) {
+      this.logger.warn(`Failed to ensure artists for track ${title}: ${e}`);
+    }
+
     this.customTracks.unshift(newTrack);
     this.saveCustomTracks();
+
+    try {
+      const connectArtists = artistRecords.map(a => ({ id: a.id }));
+      await this.prisma.track.upsert({
+        where: { id },
+        create: {
+          id,
+          title,
+          albumTitle: newTrack.albumTitle || 'Сингл',
+          artistDisplay: artist,
+          cover,
+          duration: newTrack.duration,
+          audioUrl: newTrack.audioUrl || null,
+          soundcloudUrl: newTrack.soundcloudUrl || null,
+          soundcloudTrackId: trackId ? String(trackId) : null,
+          artists: connectArtists.length > 0 ? { connect: connectArtists } : undefined,
+        },
+        update: {
+          title,
+          albumTitle: newTrack.albumTitle || 'Сингл',
+          artistDisplay: artist,
+          cover,
+          duration: newTrack.duration,
+          audioUrl: newTrack.audioUrl || undefined,
+          soundcloudUrl: newTrack.soundcloudUrl || undefined,
+          soundcloudTrackId: trackId ? String(trackId) : undefined,
+          artists: connectArtists.length > 0 ? { set: connectArtists } : undefined,
+        },
+      });
+    } catch (err) {
+      this.logger.warn(`Failed to sync track ${id} to Postgres: ${err}`);
+    }
+
     return newTrack;
   }
 
@@ -378,6 +600,11 @@ export class AudioService {
           this.saveSceneTracks(sceneTracks);
         }
       }
+
+      // Sync delete with PostgreSQL
+      try {
+        void this.prisma.track.delete({ where: { id } }).catch(() => {});
+      } catch {}
 
       return { success: true };
     }
@@ -440,6 +667,36 @@ export class AudioService {
       this.saveSceneTracks(sceneTracks);
     }
 
+    // Sync update with PostgreSQL
+    try {
+      void (async () => {
+        try {
+          const artistRecords = await this.ensureArtistsForCredit(
+            updatedTrack.artist,
+            updatedTrack.title,
+            updatedTrack.cover,
+          );
+          const connectArtists = artistRecords.map(a => ({ id: a.id }));
+          await this.prisma.track.update({
+            where: { id },
+            data: {
+              title: updatedTrack.title,
+              albumTitle: updatedTrack.albumTitle || 'Сингл',
+              artistDisplay: updatedTrack.artist,
+              cover: updatedTrack.cover,
+              duration: updatedTrack.duration,
+              audioUrl: updatedTrack.audioUrl || null,
+              soundcloudUrl: updatedTrack.soundcloudUrl || null,
+              soundcloudTrackId: updatedTrack.soundcloudTrackId ? String(updatedTrack.soundcloudTrackId) : null,
+              artists: connectArtists.length > 0 ? { set: connectArtists } : undefined,
+            },
+          });
+        } catch (e) {
+          this.logger.warn(`Failed to update track ${id} in Postgres: ${e}`);
+        }
+      })();
+    } catch {}
+
     return updatedTrack;
   }
 
@@ -474,8 +731,87 @@ export class AudioService {
       createdAt: new Date().toISOString(),
     };
 
+    let albumArtists: { id: string; name: string; slug: string }[] = [];
+    try {
+      albumArtists = await this.ensureArtistsForCredit(dto.artist, dto.title, dto.cover);
+      if (albumArtists.length > 0) {
+        newAlbum.artistId = albumArtists[0].id;
+        newAlbum.artistIds = albumArtists.map(a => a.id);
+      }
+    } catch (e) {
+      this.logger.warn(`Failed to ensure artists for album ${dto.title}: ${e}`);
+    }
+
     this.customAlbums.unshift(newAlbum);
     this.saveCustomAlbums();
+
+    try {
+      const slug = generateSlug(newAlbum.title, newAlbum.id);
+      await this.prisma.album.upsert({
+        where: { id: newAlbum.id },
+        create: {
+          id: newAlbum.id,
+          title: newAlbum.title,
+          slug,
+          artistDisplay: newAlbum.artist,
+          artistId: albumArtists[0]?.id || null,
+          cover: newAlbum.cover,
+          year: newAlbum.year,
+          soundcloudUrl: newAlbum.soundcloudUrl || null,
+          soundcloudPlaylistId: newAlbum.soundcloudPlaylistId || null,
+        },
+        update: {
+          title: newAlbum.title,
+          artistDisplay: newAlbum.artist,
+          artistId: albumArtists[0]?.id || undefined,
+          cover: newAlbum.cover,
+          year: newAlbum.year,
+          soundcloudUrl: newAlbum.soundcloudUrl || undefined,
+          soundcloudPlaylistId: newAlbum.soundcloudPlaylistId || undefined,
+        },
+      });
+
+      for (let i = 0; i < newAlbum.tracks.length; i++) {
+        const trk = newAlbum.tracks[i];
+        const trkId = trk.id || `${newAlbum.id}-trk-${i + 1}`;
+        const trkArtists = await this.ensureArtistsForCredit(
+          trk.artist || newAlbum.artist,
+          trk.title,
+          trk.cover || newAlbum.cover,
+        );
+        const connectArtists = trkArtists.map(a => ({ id: a.id }));
+
+        await this.prisma.track.upsert({
+          where: { id: trkId },
+          create: {
+            id: trkId,
+            title: trk.title,
+            albumTitle: newAlbum.title,
+            albumId: newAlbum.id,
+            artistDisplay: trk.artist || newAlbum.artist,
+            cover: trk.cover || newAlbum.cover,
+            duration: trk.duration || '3:30',
+            soundcloudUrl: trk.soundcloudUrl || null,
+            soundcloudTrackId: trk.soundcloudTrackId ? String(trk.soundcloudTrackId) : null,
+            artists: connectArtists.length > 0 ? { connect: connectArtists } : undefined,
+          },
+          update: {
+            title: trk.title,
+            albumTitle: newAlbum.title,
+            albumId: newAlbum.id,
+            artistDisplay: trk.artist || newAlbum.artist,
+            cover: trk.cover || newAlbum.cover,
+            duration: trk.duration,
+            soundcloudUrl: trk.soundcloudUrl || undefined,
+            soundcloudTrackId: trk.soundcloudTrackId ? String(trk.soundcloudTrackId) : undefined,
+            artists: connectArtists.length > 0 ? { set: connectArtists } : undefined,
+          },
+        });
+      }
+    } catch (err) {
+      this.logger.warn(`Failed to sync album ${newAlbum.id} to Postgres: ${err}`);
+    }
+
     return newAlbum;
   }
 
@@ -514,6 +850,12 @@ export class AudioService {
           this.saveSceneAlbums(sceneAlbums);
         }
       }
+
+      // Sync delete with PostgreSQL
+      try {
+        void this.prisma.track.deleteMany({ where: { albumId: id } }).catch(() => {});
+        void this.prisma.album.delete({ where: { id } }).catch(() => {});
+      } catch {}
 
       return { success: true };
     }
@@ -578,6 +920,73 @@ export class AudioService {
     if (sceneChanged) {
       this.saveSceneAlbums(sceneAlbums);
     }
+
+    // Sync update with PostgreSQL
+    try {
+      void (async () => {
+        try {
+          const albumArtists = await this.ensureArtistsForCredit(
+            updatedAlbum.artist,
+            updatedAlbum.title,
+            updatedAlbum.cover,
+          );
+          await this.prisma.album.update({
+            where: { id },
+            data: {
+              title: updatedAlbum.title,
+              artistDisplay: updatedAlbum.artist,
+              artistId: albumArtists[0]?.id || null,
+              cover: updatedAlbum.cover,
+              year: updatedAlbum.year,
+              soundcloudUrl: updatedAlbum.soundcloudUrl || null,
+              soundcloudPlaylistId: updatedAlbum.soundcloudPlaylistId || null,
+            },
+          });
+
+          if (Array.isArray(updatedAlbum.tracks)) {
+            for (let i = 0; i < updatedAlbum.tracks.length; i++) {
+              const trk = updatedAlbum.tracks[i];
+              const trkId = trk.id || `${id}-trk-${i + 1}`;
+              const trkArtists = await this.ensureArtistsForCredit(
+                trk.artist || updatedAlbum.artist,
+                trk.title,
+                trk.cover || updatedAlbum.cover,
+              );
+              const connectArtists = trkArtists.map(a => ({ id: a.id }));
+
+              await this.prisma.track.upsert({
+                where: { id: trkId },
+                create: {
+                  id: trkId,
+                  title: trk.title,
+                  albumTitle: updatedAlbum.title,
+                  albumId: updatedAlbum.id,
+                  artistDisplay: trk.artist || updatedAlbum.artist,
+                  cover: trk.cover || updatedAlbum.cover,
+                  duration: trk.duration || '3:30',
+                  soundcloudUrl: trk.soundcloudUrl || null,
+                  soundcloudTrackId: trk.soundcloudTrackId ? String(trk.soundcloudTrackId) : null,
+                  artists: connectArtists.length > 0 ? { connect: connectArtists } : undefined,
+                },
+                update: {
+                  title: trk.title,
+                  albumTitle: updatedAlbum.title,
+                  albumId: updatedAlbum.id,
+                  artistDisplay: trk.artist || updatedAlbum.artist,
+                  cover: trk.cover || updatedAlbum.cover,
+                  duration: trk.duration,
+                  soundcloudUrl: trk.soundcloudUrl || undefined,
+                  soundcloudTrackId: trk.soundcloudTrackId ? String(trk.soundcloudTrackId) : undefined,
+                  artists: connectArtists.length > 0 ? { set: connectArtists } : undefined,
+                },
+              });
+            }
+          }
+        } catch (e) {
+          this.logger.warn(`Failed to update album ${id} in Postgres: ${e}`);
+        }
+      })();
+    } catch {}
 
     return updatedAlbum;
   }
@@ -928,5 +1337,128 @@ export class AudioService {
         )
         .on('error', reject);
     });
+  }
+
+  async syncAllToDatabase() {
+    this.logger.log('Starting full catalog sync to PostgreSQL...');
+    try {
+      // 1. Sync custom albums and scene albums
+      const allAlbums = [...this.customAlbums, ...this.getSceneAlbums()];
+      const seenAlbums = new Set<string>();
+
+      for (const a of allAlbums) {
+        if (!a || !a.title || a.title.startsWith('Слот ') || seenAlbums.has(a.id)) continue;
+        seenAlbums.add(a.id);
+        const slug = generateSlug(a.title, a.id);
+        const albumArtists = await this.ensureArtistsForCredit(a.artist, a.title, a.cover);
+
+        await this.prisma.album.upsert({
+          where: { id: a.id },
+          create: {
+            id: a.id,
+            title: a.title,
+            slug,
+            artistDisplay: a.artist,
+            artistId: albumArtists[0]?.id || null,
+            cover: a.cover || '/covers/in-rainbows.jpg',
+            year: a.year || 2026,
+            soundcloudUrl: a.soundcloudUrl || null,
+            soundcloudPlaylistId: a.soundcloudPlaylistId || null,
+          },
+          update: {
+            title: a.title,
+            artistDisplay: a.artist,
+            artistId: albumArtists[0]?.id || undefined,
+            cover: a.cover || '/covers/in-rainbows.jpg',
+            year: a.year || 2026,
+            soundcloudUrl: a.soundcloudUrl || undefined,
+            soundcloudPlaylistId: a.soundcloudPlaylistId || undefined,
+          },
+        });
+
+        if (Array.isArray(a.tracks)) {
+          for (let i = 0; i < a.tracks.length; i++) {
+            const trk = a.tracks[i];
+            if (!trk || !trk.title) continue;
+            const trkId = trk.id || `${a.id}-trk-${i + 1}`;
+            const trkArtists = await this.ensureArtistsForCredit(
+              trk.artist || a.artist,
+              trk.title,
+              trk.cover || a.cover,
+            );
+            const connectArtists = trkArtists.map(art => ({ id: art.id }));
+
+            await this.prisma.track.upsert({
+              where: { id: trkId },
+              create: {
+                id: trkId,
+                title: trk.title,
+                albumTitle: a.title,
+                albumId: a.id,
+                artistDisplay: trk.artist || a.artist,
+                cover: trk.cover || a.cover || '/covers/in-rainbows.jpg',
+                duration: trk.duration || '3:30',
+                soundcloudUrl: trk.soundcloudUrl || null,
+                soundcloudTrackId: trk.soundcloudTrackId ? String(trk.soundcloudTrackId) : null,
+                artists: connectArtists.length > 0 ? { connect: connectArtists } : undefined,
+              },
+              update: {
+                title: trk.title,
+                albumTitle: a.title,
+                albumId: a.id,
+                artistDisplay: trk.artist || a.artist,
+                cover: trk.cover || a.cover || '/covers/in-rainbows.jpg',
+                duration: trk.duration,
+                soundcloudUrl: trk.soundcloudUrl || undefined,
+                soundcloudTrackId: trk.soundcloudTrackId ? String(trk.soundcloudTrackId) : undefined,
+                artists: connectArtists.length > 0 ? { set: connectArtists } : undefined,
+              },
+            });
+          }
+        }
+      }
+
+      // 2. Sync standalone tracks
+      const allTracks = [...this.customTracks, ...this.getSceneTracks()];
+      const seenTracks = new Set<string>();
+
+      for (const t of allTracks) {
+        if (!t || !t.title || t.title.startsWith('Слот ') || seenTracks.has(t.id)) continue;
+        seenTracks.add(t.id);
+        const trkArtists = await this.ensureArtistsForCredit(t.artist, t.title, t.cover);
+        const connectArtists = trkArtists.map(art => ({ id: art.id }));
+
+        await this.prisma.track.upsert({
+          where: { id: t.id },
+          create: {
+            id: t.id,
+            title: t.title,
+            albumTitle: t.albumTitle || 'Сингл',
+            artistDisplay: t.artist,
+            cover: t.cover || '/covers/in-rainbows.jpg',
+            duration: t.duration || '3:30',
+            audioUrl: t.audioUrl || null,
+            soundcloudUrl: t.soundcloudUrl || null,
+            soundcloudTrackId: t.soundcloudTrackId ? String(t.soundcloudTrackId) : null,
+            artists: connectArtists.length > 0 ? { connect: connectArtists } : undefined,
+          },
+          update: {
+            title: t.title,
+            albumTitle: t.albumTitle || 'Сингл',
+            artistDisplay: t.artist,
+            cover: t.cover || '/covers/in-rainbows.jpg',
+            duration: t.duration,
+            audioUrl: t.audioUrl || undefined,
+            soundcloudUrl: t.soundcloudUrl || undefined,
+            soundcloudTrackId: t.soundcloudTrackId ? String(t.soundcloudTrackId) : undefined,
+            artists: connectArtists.length > 0 ? { set: connectArtists } : undefined,
+          },
+        });
+      }
+
+      this.logger.log('Catalog sync to PostgreSQL completed successfully.');
+    } catch (err) {
+      this.logger.error(`Error during catalog sync to DB: ${err}`);
+    }
   }
 }

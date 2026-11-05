@@ -86,6 +86,7 @@ model Album {
   id                   String   @id @default(uuid())
   title                String
   slug                 String   @unique
+  artistDisplay        String?  // Имя артиста / группы (например "tuborosho", "Radiohead")
   year                 Int?
   cover                String
   description          String?  @db.Text
@@ -115,6 +116,7 @@ model Album {
 model Track {
   id                String   @id @default(uuid())
   title             String
+  albumTitle        String?  // Название альбома или "Сингл"
   duration          String?
   cover             String
   artistDisplay     String?  // e.g. "163ONMYNECK feat. OG Buda"
@@ -127,7 +129,7 @@ model Track {
 
   // Связи
   albumId           String?
-  album             Album?   @relation(fields: [albumId], references: [id], onDelete: Cascade)
+  album             Album?   @relation(fields: [albumId], references: [id], onDelete: SetNull)
 
   artists           Artist[] @relation("TrackArtists")   // У микрофона (сольные и фиты)
   producers         Artist[] @relation("TrackProducers") // Саунд-продюсеры (биты / продакшн)
